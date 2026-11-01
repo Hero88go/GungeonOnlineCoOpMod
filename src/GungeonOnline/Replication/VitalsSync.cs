@@ -428,11 +428,17 @@ namespace GungeonOnline.Replication
             foreach (var kv in gunWanted)
             {
                 var p = PlayerSlots.ForSlot(kv.Key);
-                if (!p || !PlayerSlots.IsRemote(p) || p.inventory == null || kv.Value < 0) continue;
-                if (p.CurrentGun && p.CurrentGun.PickupObjectId == kv.Value) continue;
+                // A copy made a moment ago (a friend rejoining) holds no gun yet: switching it then fails inside the game.
+                if (!p || !PlayerSlots.IsRemote(p) || p.inventory == null || kv.Value < 0 || !p.CurrentGun) continue;
+                if (p.CurrentGun.PickupObjectId == kv.Value) continue;
                 var all = p.inventory.AllGuns;
                 for (int i = 0; i < all.Count; i++)
-                    if (all[i] && all[i].PickupObjectId == kv.Value) { p.ChangeToGunSlot(i, true); GunsApplied++; break; }
+                    if (all[i] && all[i].PickupObjectId == kv.Value)
+                    {
+                        try { p.ChangeToGunSlot(i, true); GunsApplied++; }
+                        catch (System.Exception e) { Plugin.Log.LogWarning($"Vitals: gun switch on slot {kv.Key} copy waits ({e.GetType().Name})"); }
+                        break;
+                    }
             }
         }
 
