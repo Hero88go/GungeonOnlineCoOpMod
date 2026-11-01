@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.2.0
+
+- Bosses look and move the same on a friend's screen as on the host's. The Dragun's head follows the players again (so it can be hit), the Treadnaught's gun turns to aim, the Gatling Gull's shadow shows before it lands, and bosses play their attack animations instead of standing in one pose (the Trigger Twins no longer slide around). Boss health bars follow the host.
+- Enemy lasers (the Beholster and laser enemies) show for a friend, with their charge glow, and hurt them.
+- The Gatling Gull's rockets and their landing marks show for a friend.
+- The Cannonbalrog's dark attack darkens the room for everyone, so its eyes show where it fires from.
+- Puddles enemies leave (the Gorgun's poison, fire, water) show for a friend and affect them.
+- The Gorgun's stone gaze also turns a friend to stone.
+- The warning mark where an enemy is about to drop in shows for a friend too.
+- Switching guns as a friend (mouse wheel, number keys, quick switch) always switches on the host too. Before, the host could keep you holding an emptied gun, and your shots did no damage.
+- Linux and Steam Deck: the README explains the Proton launch option the mod needs.
+
 ## 1.1.9
 
 - Map pings: with the full map open, right click a spot, or press X / Square on a controller to ping the spot under the map crosshair. Everyone sees a ring in your color on their minimap, full map and screen for 8 seconds, with a short sound. While the full map is open, right click no longer rolls and X no longer reloads.

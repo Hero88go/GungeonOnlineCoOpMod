@@ -13,7 +13,7 @@ namespace GungeonOnline.Dev
         static bool costumeDone, fireOn, fireOff;
         static float nextLog;
 
-        static bool reticleDone;
+        static bool reticleDone, stoneDone;
 
         /// <summary>GO_RETICLE_AT=seconds (host): a bullet kin drops into the host's room the way reinforcements do,
         /// with the warning reticle first.</summary>
@@ -92,6 +92,13 @@ namespace GungeonOnline.Dev
                 if (fireOn && !fireOff && t >= at + 6f) { fireOff = true; me.IsOnFire = false; Plugin.Log.LogInfo("LOOKCHECK put my fire out"); }
                 // Keep it burning for the 6 s (the game puts out a fire that is not fed by flames on the floor).
                 if (fireOn && !fireOff && !me.IsOnFire) me.IsOnFire = true;
+            }
+            if (Session.NetSession.IsHost && !stoneDone && float.TryParse(System.Environment.GetEnvironmentVariable("GO_STONE_AT"), out var sat) && t >= sat
+                && !Game.SceneObjects.InBreach && !GameManager.Instance.IsLoadingLevel && Game.PlayerSlots.ForSlot(1))
+            {
+                stoneDone = true;
+                Replication.LookSync.Instance.TestStone(Game.PlayerSlots.ForSlot(1).CenterPosition + new Vector2(0f, 5f));
+                Plugin.Log.LogInfo("STONETEST sent");
             }
             try { ReticleTest(t, me); } catch (System.Exception e) { Plugin.Log.LogInfo("RETICLETEST error " + e.Message); }
             try { GunTest(t, me); } catch (System.Exception e) { Plugin.Log.LogInfo("GUNTEST error " + e.Message); }

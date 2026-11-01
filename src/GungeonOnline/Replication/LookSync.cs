@@ -492,6 +492,14 @@ namespace GungeonOnline.Replication
             if (Dev.DevEnv.IsHarness) Plugin.Log.LogInfo($"LOOKSYNC stone wave sent from {c}");
         }
 
+        /// <summary>Harness: send a stone wave from this spot as if the Gorgun had looked.</summary>
+        public void TestStone(Vector2 c)
+        {
+            w.Reset(); w.U8(EvStone); V2(w, c);
+            w.F32(0.5f); w.F32(0.04f); w.F32(20f); w.F32(1.5f); w.F32(3f);
+            Broadcast(w.ToArray(), Channel.Event, Delivery.ReliableOrdered);
+        }
+
         IEnumerator StoneWave(Vector2 center, float intensity, float thickness, float maxRadius, float duration, float stone)
         {
             Exploder.DoDistortionWave(center, intensity, thickness, maxRadius, duration);
@@ -514,6 +522,11 @@ namespace GungeonOnline.Replication
                     }
                 }
                 prev = wave;
+            }
+            if (Dev.DevEnv.IsHarness)
+            {
+                var me = PlayerSlots.Local;
+                Plugin.Log.LogInfo($"LOOKSYNC stone wave done dist={(me ? Vector2.Distance(me.CenterPosition, center) : -1f):F1} max={maxRadius} vuln={(me ? me.healthHaver.IsVulnerable : false)} iframe={(me ? me.spriteAnimator.QueryInvulnerabilityFrame() : false)} facing={(me ? me.FacingDirection : 0f):F0} stone={(me ? me.CurrentStoneGunTimer : 0f):F1}");
             }
         }
 
