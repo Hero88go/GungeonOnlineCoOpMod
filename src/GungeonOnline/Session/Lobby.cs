@@ -266,7 +266,8 @@ namespace GungeonOnline.Session
                     if (!seen.Contains(slot)) { Roster.Remove(slot); PlayerSlots.Despawn(slot); }
             }
             // Re-spawn with a new character if someone changed theirs.
-            foreach (var kv in Roster)
+            // A copy: spawning can change the roster (a player who crashed and rejoined mid-loop).
+            foreach (var kv in new List<KeyValuePair<int, Entry>>(Roster))
                 if (kv.Key != NetSession.LocalSlot && kv.Value.Prefab.Length > 0)
                     PlayerSlots.SpawnRemote(kv.Key, kv.Value.Prefab, kv.Value.Alt);
         }

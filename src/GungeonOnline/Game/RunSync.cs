@@ -454,9 +454,11 @@ namespace GungeonOnline.Game
                 // The host changed floors while our rejoin load was already under way: follow it now.
                 if (hasPending && (pendingIndex != CurrentIndex || pendingSeed != GameManager.Instance.CurrentRunSeed))
                 {
-                    hasPending = false;
+                    // Not from inside this floor's own arrival: a load started then never finished arriving (no
+                    // world, input locked). Wait until this floor has settled, then go.
+                    rejoining = true;
                     Plugin.Log.LogInfo($"RunSync: rejoin landed on floor index {CurrentIndex}, the host is on {pendingIndex}: following");
-                    LoadFloor(pendingSeed, pendingIndex, pendingInjected);
+                    StartCoroutine(LoadWhenFree());
                     return;
                 }
                 hasPending = false;
