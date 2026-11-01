@@ -127,8 +127,9 @@ namespace GungeonOnline.Replication
                         if (!own || diff > Mathf.Max(5, g.AdjustedMaxAmmo / 4)) g.CurrentAmmo = kv.Value;
                         break;
                     }
-            // Current gun for the other players' copies (your own follows your input)
-            if (!own && current >= 0 && p.CurrentGun && p.CurrentGun.PickupObjectId != current)
+            // Current gun for the other players' copies (your own follows your input; a copy whose owner already
+            // said which gun it holds follows the owner, which is newer than the host's view)
+            if (!own && current >= 0 && p.CurrentGun && p.CurrentGun.PickupObjectId != current && VitalsSync.WantedGun(PlayerSlots.SlotOf(p)) == int.MinValue)
             {
                 var all = p.inventory.AllGuns;
                 for (int i = 0; i < all.Count; i++)

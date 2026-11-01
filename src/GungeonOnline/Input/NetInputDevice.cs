@@ -30,6 +30,9 @@ namespace GungeonOnline.Input
                 AddControl(kv.Value.Value, kv.Key, 0f, 1f);
         }
 
+        /// <summary>Gun switching buttons are not replayed: the owner says which gun its player holds (VitalsSync).</summary>
+        static bool GunChoice(NetButton b) => b == NetButton.GunUp || b == NetButton.GunDown || b == NetButton.GunQuickEquip;
+
         public override void Update(ulong updateTick, float deltaTime)
         {
             var f = Frame;
@@ -45,7 +48,7 @@ namespace GungeonOnline.Input
             UpdateWithValue(InputControlType.RightStickDown, a.y < 0 ? -a.y : 0f, updateTick, deltaTime);
             UpdateWithState(NetBindings.SelectDownControl, (f.Flags & NetFlags.SelectDown) != 0, updateTick, deltaTime);
             foreach (var kv in NetBindings.Map)
-                UpdateWithState(kv.Value.Value, f.Has(kv.Value.Key), updateTick, deltaTime);
+                UpdateWithState(kv.Value.Value, !GunChoice(kv.Value.Key) && f.Has(kv.Value.Key), updateTick, deltaTime);
         }
     }
 }

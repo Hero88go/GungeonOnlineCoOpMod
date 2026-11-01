@@ -94,6 +94,15 @@ namespace GungeonOnline.Replication
             h.Patch(AccessTools.Method(typeof(BossKillCam), "KillAllEnemies"), prefix: new HarmonyMethod(t, nameof(ClientBlock)));
             // Client: erasing its own copy of the floor's boss must not start a boss kill cam (it froze the player).
             h.Patch(AccessTools.Method(typeof(GameUIRoot), nameof(GameUIRoot.TriggerBossKillCam)), prefix: new HarmonyMethod(t, nameof(KillCamPrefix)));
+            // Client: a copy's animation ending must not start the AI's next one; the host says what plays next.
+            h.Patch(AccessTools.Method(typeof(AIAnimator), "AnimationCompleted"), prefix: new HarmonyMethod(t, nameof(CopyAnimationDonePrefix)));
+        }
+
+        static bool CopyAnimationDonePrefix(AIAnimator __instance)
+        {
+            if (!IsClient || Instance == null || __instance == null) return true;
+            var a = __instance.aiActor;
+            return a == null || !Instance.IsReplica(NetIds.Of(a));
         }
 
         static System.Exception CopyPlacementFinalizer(System.Exception __exception)
@@ -207,13 +216,13 @@ namespace GungeonOnline.Replication
             foreach (var c in ready) c.Send((byte)Channel.Event, data, Delivery.ReliableOrdered);
         }
 
-        static int RoomIndex(RoomHandler r)
+        internal static int RoomIndex(RoomHandler r)
         {
             var rooms = GameManager.Instance.Dungeon != null ? GameManager.Instance.Dungeon.data.rooms : null;
             return rooms == null || r == null ? -1 : rooms.IndexOf(r);
         }
 
-        static RoomHandler RoomAt(int i)
+        internal static RoomHandler RoomAt(int i)
         {
             var rooms = GameManager.Instance.Dungeon != null ? GameManager.Instance.Dungeon.data.rooms : null;
             return rooms != null && i >= 0 && i < rooms.Count ? rooms[i] : null;
@@ -644,6 +653,7 @@ namespace GungeonOnline.Replication
             FloorReady = false;
             PlayerSync.Instance?.ResetTracks();
             ProjectileSync.Instance?.OnFloorChanged();
+            LookSync.Instance?.OnFloorChanged();
             Game.SecondFightLock.Reset();
             PickupSync.Instance?.OnFloorChanged();
             ShopSync.Instance?.OnFloorChanged();
@@ -736,6 +746,7 @@ namespace GungeonOnline.Replication
             try
             {
                 if (type >= 20 && type < 30) { ProjectileSync.Instance?.Apply(type, ref r); return; }
+                if (type >= 30 && type < 40) { ApplyingHost = false; LookSync.Instance?.Apply(type, ref r); return; }
                 if (type >= 60 && type < 70) { ApplyingHost = false; var sr = new WireReader(data, 1, data.Length - 1); ShopSync.Instance?.Apply(null, type, ref sr); return; }
                 if (type >= 80 && type < 90) { ApplyingHost = false; var qr = new WireReader(data, 1, data.Length - 1); PropSync.Instance?.Apply(type, ref qr); return; }
                 if (type == 45) { var ir = new WireReader(data, 1, data.Length - 1); InventorySync.Instance?.Apply(ref ir); return; }
@@ -954,6 +965,9 @@ namespace GungeonOnline.Replication
             if (a.behaviorSpeculator) a.behaviorSpeculator.enabled = false;
             if (a.aiAnimator) a.aiAnimator.enabled = false;
             if (a.aiShooter) a.aiShooter.enabled = false;
+            // Goop comes from the host (LookSync); the copy's own goopers follow other rules here (the Gorgun's is
+            // switched on and off by her AI).
+            foreach (var g in a.GetComponents<GoopDoer>()) if (g) g.enabled = false;
             a.CanDropCurrency = false;
             a.CanDropItems = false;
         }
@@ -981,7 +995,10 @@ namespace GungeonOnline.Replication
                 rep.OldTarget = rep.Target; rep.OldVelocity = rep.Velocity; rep.OldTime = rep.TargetTime;
                 rep.Target = pos; rep.Velocity = vel; rep.TargetTime = now;
                 var a = rep.Actor;
-                if (clip != 0 && clip != rep.Clip && a.spriteAnimator != null && a.spriteAnimator.Library != null)
+                // Play the host's clip when it changes, and again whenever something here played another one over it
+                // (a hit flash, the end of an intro).
+                var cur = a.spriteAnimator != null ? a.spriteAnimator.CurrentClip : null;
+                if (clip != 0 && (clip != rep.Clip || cur == null || ClipHash(cur.name) != clip) && a.spriteAnimator != null && a.spriteAnimator.Library != null)
                 {
                     foreach (var cl in a.spriteAnimator.Library.clips)
                         if (cl != null && cl.name != null && ClipHash(cl.name) == clip) { a.spriteAnimator.Play(cl); break; }
@@ -1003,6 +1020,11 @@ namespace GungeonOnline.Replication
                 var a = rep.Actor;
                 if (!a || a.healthHaver == null || a.healthHaver.IsDead) continue;
                 if (a.IsBlackPhantom != rep.Jammed) SetJammed(a, rep.Jammed);
+                // Boss intros, freezing and other effects switch these back on when they end; a copy's AI stays off
+                // (its animator running left bosses frozen in one pose: the Dragun, the Gatling Gull).
+                if (a.behaviorSpeculator && a.behaviorSpeculator.enabled) a.behaviorSpeculator.enabled = false;
+                if (a.aiAnimator && a.aiAnimator.enabled) a.aiAnimator.enabled = false;
+                if (a.aiShooter && a.aiShooter.enabled) a.aiShooter.enabled = false;
                 try { AimReplica(rep); } catch (System.Exception) { rep.HasGun = false; }
                 float age = Mathf.Min(0.1f, now - rep.TargetTime); // extrapolate at most 100 ms
                 Vector2 want = rep.Target + rep.Velocity * age;

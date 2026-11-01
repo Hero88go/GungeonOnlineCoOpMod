@@ -20,6 +20,7 @@ namespace GungeonOnline.Session
         Props = 6,
         Backup = 7,
         Move = 8,    // host to a player's own game: move your player here (see PlayerSync)
+        Looks = 9,   // host to guests: boss parts and enemy beams (see LookSync)
     }
 
     /// <summary>

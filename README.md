@@ -81,7 +81,7 @@ Gungeon's co-op has always been couch co-op: one shared camera, and player two i
 
 ## Install
 
-Download the latest **`GungeonOnline-1.1.9.zip`** from [Releases](../../releases) and unzip it anywhere (right-click, Extract All). Close the game first. Then pick **either** way below. Everyone needs the same version.
+Download the latest **`GungeonOnline-1.2.0.zip`** from [Releases](../../releases) and unzip it anywhere (right-click, Extract All). Close the game first. Then pick **either** way below. Everyone needs the same version.
 
 ### Option A: the installer (easiest)
 
@@ -182,7 +182,13 @@ Your own character is never delayed. Your friend's character, the enemies and th
 Yes, up to 4 (experimental). The host sets **Players** to 3 or 4 on the Hosting screen. See *Playing with 3 or 4* above.
 
 **Does it work on Steam Deck / Linux?**
-Not tested yet.
+Through Proton, yes: the mod is for the Windows version of the game. In Steam, open the game's **Properties**. Under **Compatibility**, tick *Force the use of a specific Steam Play compatibility tool* and pick a Proton version. Under **General**, set **Launch options** to:
+
+```
+WINEDLLOVERRIDES="winhttp=n,b" %command%
+```
+
+Then copy the mod files next to `EtG.exe` as usual. Without that launch option Proton skips the mod's loader and **PLAY ONLINE** never shows up.
 
 **Do I need to own the game?**
 Yes. Nothing from the game is included. Each player needs their own copy.
@@ -192,7 +198,7 @@ Your normal save is used and gets credit for runs you play online. Run backups g
 
 ## Troubleshooting
 
-- **No PLAY ONLINE in the pause menu:** the files went into the wrong folder. They must sit right next to `EtG.exe` (you should see `winhttp.dll` and the `BepInEx` folder beside it). Steam players: check you copied into the folder that **Browse local files** opened.
+- **No PLAY ONLINE in the pause menu:** the files went into the wrong folder. They must sit right next to `EtG.exe` (you should see `winhttp.dll` and the `BepInEx` folder beside it). Steam players: check you copied into the folder that **Browse local files** opened. On Linux or Steam Deck, also set the Proton launch option from the FAQ above.
 - **The installer window closes or does nothing:** use Option B, it does the same thing.
 - **"Your friend has a different version":** both players need the same download. Get the latest from [Releases](../../releases).
 - **Can't connect:** give it a few seconds, the mod opens a path through the host's router by itself. If it still fails, the joiner's *reply code* is copied for them: they send it to the host, who picks *Let in friend*. Swapping who hosts also often works. If both routers are strict, use Tailscale or Radmin VPN and join with `ip:port`.
@@ -200,9 +206,9 @@ Your normal save is used and gets credit for runs you play online. Run backups g
 
 ## Status
 
-Version 1.1.9 beta. **Found a bug? Please [open an issue](../../issues)** and use *Send report* (Settings, Help and advanced) if you can. Every report helps.
+Version 1.2.0 beta. **Found a bug? Please [open an issue](../../issues)** and use *Send report* (Settings, Help and advanced) if you can. Every report helps.
 
-For r2modman, download **`GungeonOnline-1.1.9-r2modman.zip`** from Releases, then in r2modman pick Settings, Import local mod, and choose that zip. It uses the mod manager's BepInEx pack. When you join, the mod lists any mods that differ between you. Host and guest need matching mods and versions. ExpandTheGungeon 3.0.8 with MtG API 1.9.2 and BepInExPack_EtG 5.4.2101 has been tested across several floors. Other modpacks may still be incompatible; a different floor layout now returns the guest safely to the Breach with an explanation.
+For r2modman, download **`GungeonOnline-1.2.0-r2modman.zip`** from Releases, then in r2modman pick Settings, Import local mod, and choose that zip. It uses the mod manager's BepInEx pack. When you join, the mod lists any mods that differ between you. Host and guest need matching mods and versions. ExpandTheGungeon 3.0.8 with MtG API 1.9.2 and BepInExPack_EtG 5.4.2101 has been tested across several floors. Other modpacks may still be incompatible; a different floor layout now returns the guest safely to the Breach with an explanation.
 
 ## Settings
 

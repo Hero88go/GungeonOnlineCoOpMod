@@ -19,7 +19,7 @@ namespace GungeonOnline.Replication
     internal sealed class VitalsSync : MonoBehaviour
     {
         public static VitalsSync Instance { get; private set; }
-        const byte EvHurt = 40, EvVitals = 41, EvPlayerDied = 42, EvPlayerRevived = 43, EvPitfall = 44, EvFire = 46; // 45 is InventorySync, 47 is MapPing
+        const byte EvHurt = 40, EvVitals = 41, EvPlayerDied = 42, EvPlayerRevived = 43, EvPitfall = 44, EvFire = 46, EvGun = 48; // 45 is InventorySync, 47 is MapPing
 
         static bool scope;
         static bool IsClient => NetSession.Active && !NetSession.IsHost;
@@ -56,7 +56,7 @@ namespace GungeonOnline.Replication
 
         void Start()
         {
-            NetSession.Instance.SessionEnded += () => { hurtSeq = 0; hurtApplied.Clear(); lastVitals.Clear(); lastFireSent = false; };
+            NetSession.Instance.SessionEnded += () => { hurtSeq = 0; hurtApplied.Clear(); lastVitals.Clear(); lastFireSent = false; gunWanted.Clear(); lastGunSent = int.MinValue; };
             // Hit report numbering restarts with every connection.
             NetSession.Instance.PeerJoined += c =>
             {
@@ -268,6 +268,7 @@ namespace GungeonOnline.Replication
         public void Apply(Connection c, byte type, ref WireReader r)
         {
             if (type == EvFire) { ApplyFire(c, ref r); return; }
+            if (type == EvGun) { ApplyGun(c, ref r); return; }
             if (type == EvPitfall) { ApplyPitfall(c, ref r); return; }
             if (type == EvHurt && NetSession.IsHost)
             {
@@ -379,8 +380,71 @@ namespace GungeonOnline.Replication
             finally { Dev.NetProfiler.End("vitals", t0); }
         }
 
+        // ---------------- Held gun ----------------
+        // The owner of a player decides which gun it holds. Other machines never switch a copy's gun from replayed
+        // button presses (a mouse wheel or number key is not even a button there, and one lost press left a copy
+        // firing an empty chest gun that did no damage); they follow this message.
+
+        int lastGunSent = int.MinValue;
+        float nextGunResend;
+        readonly Dictionary<int, int> gunWanted = new Dictionary<int, int>();
+        public int GunsSent, GunsApplied;
+
+        void OwnGunTick()
+        {
+            var me = PlayerSlots.Local;
+            if (!me || GameManager.Instance.IsLoadingLevel) return;
+            int id = me.CurrentGun ? me.CurrentGun.PickupObjectId : -1;
+            float now = Time.realtimeSinceStartup;
+            if (id == lastGunSent && now < nextGunResend) return;
+            lastGunSent = id;
+            nextGunResend = now + 2f; // repeated now and then: a copy made later (reconnect, new floor) catches up
+            SendGun(NetSession.LocalSlot, id, null);
+            GunsSent++;
+        }
+
+        void SendGun(int slot, int gunId, Connection except)
+        {
+            w.Reset(); w.U8(EvGun); w.U8((byte)slot); w.I32(gunId);
+            var msg = w.ToArray();
+            var ws = WorldSync.Instance;
+            foreach (var c in NetSession.Instance.Node.Connections)
+                if (c != except && (ws == null || ws.IsReady(c) || !NetSession.IsHost)) c.Send((byte)Channel.Event, msg, Delivery.ReliableOrdered);
+        }
+
+        void ApplyGun(Connection from, ref WireReader r)
+        {
+            int slot = r.U8();
+            int id = r.I32();
+            if (NetSession.IsHost) { if (slot != from.Slot) return; SendGun(slot, id, from); } // a guest speaks only for itself
+            gunWanted[slot] = id;
+            FollowGuns();
+        }
+
+        /// <summary>Hold the gun each copy's owner holds (a gun picked up a moment ago may not be in the copy's
+        /// inventory yet: keep trying).</summary>
+        void FollowGuns()
+        {
+            foreach (var kv in gunWanted)
+            {
+                var p = PlayerSlots.ForSlot(kv.Key);
+                if (!p || !PlayerSlots.IsRemote(p) || p.inventory == null || kv.Value < 0) continue;
+                if (p.CurrentGun && p.CurrentGun.PickupObjectId == kv.Value) continue;
+                var all = p.inventory.AllGuns;
+                for (int i = 0; i < all.Count; i++)
+                    if (all[i] && all[i].PickupObjectId == kv.Value) { p.ChangeToGunSlot(i, true); GunsApplied++; break; }
+            }
+        }
+
+        public static int WantedGun(int slot) => Instance != null && Instance.gunWanted.TryGetValue(slot, out var id) ? id : int.MinValue;
+
         void LateUpdateImpl()
         {
+            if (NetSession.Active)
+            {
+                try { OwnGunTick(); if (gunWanted.Count > 0 && !GameManager.Instance.IsLoadingLevel) FollowGuns(); }
+                catch (System.Exception e) { Plugin.Log.LogWarning("Vitals: gun " + e.Message); }
+            }
             if (!IsHostSession || GameManager.Instance.IsLoadingLevel) return;
             var list = vitalsList;
             list.Clear();

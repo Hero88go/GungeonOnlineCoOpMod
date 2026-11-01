@@ -9,7 +9,7 @@ namespace GungeonOnline
     {
         public const string Guid = "gungeononline";
         public const string Name = "Enter The Gungeon Online Co-Op Mod";
-        public const string Version = "1.1.9";
+        public const string Version = "1.2.0";
 
         internal static ManualLogSource Log;
         internal static Plugin Instance;
@@ -38,6 +38,7 @@ namespace GungeonOnline
             Game.CombatDoorEntry.Install(harmony);
             Replication.WorldSync.Install(harmony);
             Replication.ProjectileSync.Install(harmony);
+            TryInstall("LookSync", () => Replication.LookSync.Install(harmony));
             Game.CouchCoop.Install(harmony);
             TryInstall("PlayerListPatches", () => Game.NPlayers.PlayerListPatches.Install(harmony));
             TryInstall("DeathRevivePatches", () => Game.NPlayers.DeathRevivePatches.Install(harmony));
@@ -64,6 +65,7 @@ namespace GungeonOnline
                 prefix: new HarmonyMethod(typeof(Plugin), nameof(OnGameOver)));
             Dev.QuickStart.Prepare();
             Log.LogInfo($"{Name} {Version} loaded. game={Session.NetSession.GameHash} dev={Dev.DevEnv.Summary()}");
+            if (Dev.DevEnv.IsHarness) TryInstall("FreezeProbe", () => Dev.FreezeProbe.Install(harmony));
             gameObject.AddComponent<Session.NetSession>();
             gameObject.AddComponent<Session.Toasts>();
             gameObject.AddComponent<Session.Metrics>();
@@ -80,6 +82,7 @@ namespace GungeonOnline
             gameObject.AddComponent<Game.ConversationSync>();
             gameObject.AddComponent<Replication.WorldSync>();
             gameObject.AddComponent<Replication.ProjectileSync>();
+            gameObject.AddComponent<Replication.LookSync>();
             gameObject.AddComponent<Replication.VitalsSync>();
             gameObject.AddComponent<Replication.PickupSync>();
             gameObject.AddComponent<Replication.InventorySync>();

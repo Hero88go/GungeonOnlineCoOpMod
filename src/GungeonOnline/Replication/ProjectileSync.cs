@@ -50,9 +50,11 @@ namespace GungeonOnline.Replication
         public void OnFloorChanged() { hostTracked.Clear(); copies.Clear(); copyIds.Clear(); touchedMe.Clear(); }
         void Start() { NetSession.Instance.SessionEnded += () => { hostTracked.Clear(); copies.Clear(); copyIds.Clear(); }; }
 
-        /// <summary>Bullets the host owns: not from a player, able to hit players.</summary>
+        /// <summary>Bullets the host owns: not from a player, able to hit players. Beams and sky rockets are not
+        /// bullets here: each guest's game makes its own from the host's word (LookSync).</summary>
         static bool HostOwned(Projectile p) => p != null && p.collidesWithPlayer && !(p.Owner is PlayerController) &&
-            !p.name.StartsWith("ThrownGunProjectile", System.StringComparison.Ordinal);
+            !p.name.StartsWith("ThrownGunProjectile", System.StringComparison.Ordinal) &&
+            p.GetComponent<BeamController>() == null && p.GetComponent<SkyRocket>() == null;
 
         static string Key(Projectile p)
         {
