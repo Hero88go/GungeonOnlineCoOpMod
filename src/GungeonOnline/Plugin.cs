@@ -65,6 +65,7 @@ namespace GungeonOnline
                 prefix: new HarmonyMethod(typeof(Plugin), nameof(OnGameOver)));
             Dev.QuickStart.Prepare();
             Log.LogInfo($"{Name} {Version} loaded. game={Session.NetSession.GameHash} dev={Dev.DevEnv.Summary()}");
+            if (Dev.DevEnv.IsHarness) TryInstall("NoMouseGrab", () => Dev.NoMouseGrab.Install(harmony));
             if (Dev.DevEnv.IsHarness) TryInstall("FreezeProbe", () => Dev.FreezeProbe.Install(harmony));
             gameObject.AddComponent<Session.NetSession>();
             gameObject.AddComponent<Session.Toasts>();
