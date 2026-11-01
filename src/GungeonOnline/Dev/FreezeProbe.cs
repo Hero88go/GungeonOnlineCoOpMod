@@ -36,7 +36,7 @@ namespace GungeonOnline.Dev
                     if (!want) continue;
                     foreach (var m in t.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly))
                     {
-                        if (m.IsAbstract || m.IsGenericMethodDefinition || m.Name.EndsWith("Prefix") || m.Name.EndsWith("Postfix") || m.Name.EndsWith("Finalizer") || m.Name == "Leave" || m.ContainsGenericParameters || m.GetMethodBody() == null || m.Name.StartsWith("get_") && m.GetMethodBody().GetILAsByteArray().Length < 16) continue;
+                        if (m.IsAbstract || m.IsGenericMethodDefinition || m.Name.EndsWith("Prefix") || m.Name.EndsWith("Postfix") || m.Name.EndsWith("Finalizer") || m.Name == "Leave" || m.ContainsGenericParameters || m.GetMethodBody() == null || m.Name.StartsWith("get_") || m.Name.StartsWith("set_")) continue;
                         try { h.Patch(m, prefix: enter); n++; } catch { failed++; }
                     }
                     // Coroutine bodies (floor building runs in steps).
@@ -128,7 +128,7 @@ namespace GungeonOnline.Dev
                 if (f != last) { last = f; still = 0; continue; }
                 if (f < 600) continue; // still booting: a slow start is not a freeze
                 still += 2;
-                if (still < 12 || (still - 12) % 10 != 0 || dumps >= 6) continue;
+                if (still < 30 || (still - 30) % 10 != 0 || dumps >= 6) continue;
                 dumps++;
                 try
                 {
