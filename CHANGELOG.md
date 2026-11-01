@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.2.1
+
+- Fixed a rare frozen loading screen when moving to a new floor. It happened when a friend kept taking hits while a floor loaded: every hit made the game search for the health display, which does not exist during a load, so the load never got to finish.
+
 ## 1.2.0
 
 - Bosses look and move the same on a friend's screen as on the host's. The Dragun's head follows the players again (so it can be hit), the Treadnaught's gun turns to aim, the Gatling Gull's shadow shows before it lands, and bosses play their attack animations instead of standing in one pose (the Trigger Twins no longer slide around). Boss health bars follow the host.
