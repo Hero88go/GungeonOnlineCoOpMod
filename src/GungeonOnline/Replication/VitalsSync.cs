@@ -265,8 +265,25 @@ namespace GungeonOnline.Replication
         }
 
         /// <summary>Events 40-49, called by WorldSync's event router on both sides.</summary>
+        // Hits and health that arrive while this game loads a floor wait for the load to end. Applying them then
+        // ran the game's health display code, which looks for the HUD on every call; with no HUD during a load each
+        // look searched every object, and a friend still taking hits on the old floor kept the host's load from
+        // ever finishing (the rare "frozen loading screen").
+        readonly List<KeyValuePair<Connection, byte[]>> heldWhileLoading = new List<KeyValuePair<Connection, byte[]>>();
+
+        static bool Loading => GameManager.Instance.IsLoadingLevel || Dungeonator.Dungeon.IsGenerating;
+
         public void Apply(Connection c, byte type, ref WireReader r)
         {
+            if ((type == EvHurt || type == EvVitals) && Loading)
+            {
+                var copy = new byte[r.Remaining + 1];
+                copy[0] = type;
+                System.Buffer.BlockCopy(r.Buffer, r.Pos, copy, 1, r.Remaining);
+                if (type == EvVitals) heldWhileLoading.RemoveAll(x => x.Value[0] == EvVitals); // only the newest counts
+                heldWhileLoading.Add(new KeyValuePair<Connection, byte[]>(c, copy));
+                return;
+            }
             if (type == EvFire) { ApplyFire(c, ref r); return; }
             if (type == EvGun) { ApplyGun(c, ref r); return; }
             if (type == EvPitfall) { ApplyPitfall(c, ref r); return; }
@@ -446,6 +463,18 @@ namespace GungeonOnline.Replication
 
         void LateUpdateImpl()
         {
+            if (heldWhileLoading.Count > 0 && NetSession.Active && !Loading)
+            {
+                var held = new List<KeyValuePair<Connection, byte[]>>(heldWhileLoading);
+                heldWhileLoading.Clear();
+                foreach (var kv in held)
+                {
+                    var hr = new WireReader(kv.Value, 1, kv.Value.Length - 1);
+                    try { Apply(kv.Key, kv.Value[0], ref hr); }
+                    catch (System.Exception e) { Plugin.Log.LogWarning("Vitals: held message " + e.Message); }
+                }
+            }
+            if (!NetSession.Active) heldWhileLoading.Clear();
             if (NetSession.Active)
             {
                 try { OwnGunTick(); if (gunWanted.Count > 0 && !GameManager.Instance.IsLoadingLevel) FollowGuns(); }
