@@ -45,7 +45,7 @@ namespace GungeonOnline.Replication
             // Clock mapping: sample = localArrivalMs - remoteMs. Min over a window = fastest path; spread = jitter.
             public readonly Queue<KeyValuePair<double, double>> Samples = new Queue<KeyValuePair<double, double>>();
             public double BaseOffsetMs = double.NaN;
-            public double JitterMs;
+            public double JitterMs, JitterAt = -1e9;
             public double BufferMs;
             public int Starved, Merged, Applied;
             public int Held;              // frames with nothing new (also when the sender just runs at a lower frame rate)
@@ -386,13 +386,18 @@ namespace GungeonOnline.Replication
             if (!fresh) return;
             double sample = nowMs - remoteMs;
             s.Samples.Enqueue(new KeyValuePair<double, double>(nowMs, sample));
-            while (s.Samples.Count > 0 && nowMs - s.Samples.Peek().Key > 3000) s.Samples.Dequeue();
+            // At most 1024 samples, and the percentile at most ten times a second: after a hitch thousands of held-up
+            // frames arrive at once, and sorting all of them for each one froze the game.
+            while (s.Samples.Count > 0 && (nowMs - s.Samples.Peek().Key > 3000 || s.Samples.Count > 1024)) s.Samples.Dequeue();
             double min = double.MaxValue;
+            foreach (var kv in s.Samples) if (kv.Value < min) min = kv.Value;
+            s.BaseOffsetMs = min;
+            if (nowMs - s.JitterAt < 100.0) return;
+            s.JitterAt = nowMs;
             var list = new List<double>(s.Samples.Count);
-            foreach (var kv in s.Samples) { if (kv.Value < min) min = kv.Value; list.Add(kv.Value); }
+            foreach (var kv in s.Samples) list.Add(kv.Value);
             list.Sort();
             double p90 = list[System.Math.Min(list.Count - 1, (int)(list.Count * bufPercentile))];
-            s.BaseOffsetMs = min;
             s.JitterMs = p90 - min;
         }
     }
