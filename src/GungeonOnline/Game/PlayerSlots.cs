@@ -19,7 +19,21 @@ namespace GungeonOnline.Game
 
         public static int LocalSlot => Session.NetSession.Active ? Session.NetSession.LocalSlot : 0;
 
-        public static PlayerController Local => GameManager.HasInstance ? GameManager.Instance.PrimaryPlayer : null;
+        /// <summary>This machine's own player. With none (menus, character select), the game searches every object each
+        /// time it is asked; a burst of network messages that each asked froze the game. One search a frame at most.</summary>
+        public static PlayerController Local
+        {
+            get
+            {
+                if (!GameManager.HasInstance) return null;
+                if (noPlayerFrame == Time.frameCount && !gmPlayer(GameManager.Instance)) return null;
+                var p = GameManager.Instance.PrimaryPlayer;
+                if (!p) noPlayerFrame = Time.frameCount;
+                return p;
+            }
+        }
+        static int noPlayerFrame = -1;
+        static readonly HarmonyLib.AccessTools.FieldRef<GameManager, PlayerController> gmPlayer = HarmonyLib.AccessTools.FieldRefAccess<GameManager, PlayerController>("m_player");
 
         /// <summary>
         /// The game's player id for a slot on this machine. The local player is always id 0 (own HUD, own camera),
