@@ -17,7 +17,7 @@ namespace GungeonOnline.Replication
     internal sealed class PropSync : MonoBehaviour
     {
         public static PropSync Instance { get; private set; }
-        const byte EvMinor = 80, EvMajor = 81, EvFlip = 82, EvCarts = 83, EvElevator = 84, EvMyCart = 85, EvKick = 86, EvKickPos = 87, EvMovers = 88, EvKickReq = 89, EvFlipReq = 1; // EvFlipReq goes on the Props channel (the event ids are all taken)
+        const byte EvMinor = 80, EvMajor = 81, EvFlip = 82, EvCarts = 83, EvElevator = 84, EvMyCart = 85, EvKick = 86, EvKickPos = 87, EvMovers = 88, EvKickReq = 89, EvFlipReq = 1, EvBarrels = 2; // EvFlipReq goes on the Props channel (the event ids are all taken)
 
         static bool scope;
         static bool IsClient => NetSession.Active && !NetSession.IsHost;
@@ -69,6 +69,14 @@ namespace GungeonOnline.Replication
             NetSession.Instance.On(Channel.Props, (c, data, d) =>
             {
                 if (data.Length > 0 && data[0] == EvMyCart && NetSession.IsHost) { var mr = new WireReader(data, 1, data.Length - 1); ApplyGuestCart(c, ref mr); return; }
+                if (data.Length > 0 && data[0] == EvKickReq && NetSession.IsHost)
+                {
+                    var kr = new WireReader(data, 1, data.Length - 1);
+                    var kp = new Vector2(kr.F32(), kr.F32());
+                    kr.I32();
+                    try { HostRequest(EvKickReq, kp, c.Slot); } catch (System.Exception e) { Plugin.Log.LogWarning("PropSync: kick request " + e.Message); }
+                    return;
+                }
                 if (data.Length > 0 && data[0] == EvFlipReq && NetSession.IsHost)
                 {
                     var fr = new WireReader(data, 1, data.Length - 1);
@@ -85,6 +93,8 @@ namespace GungeonOnline.Replication
                     catch (System.Exception e) { Plugin.Log.LogWarning("PropSync: flip request " + e.Message); }
                     return;
                 }
+                if (data.Length > 0 && data[0] == EvBarrels && !NetSession.IsHost && WorldSync.Instance != null && WorldSync.Instance.FloorReady)
+                { var br = new WireReader(data, 1, data.Length - 1); ApplyBarrels(ref br); return; }
                 if (data.Length > 0 && data[0] == EvMovers && !NetSession.IsHost && WorldSync.Instance != null && WorldSync.Instance.FloorReady)
                 { var vr = new WireReader(data, 1, data.Length - 1); ApplyMovers(ref vr); return; }
                 if (data.Length == 0 || data[0] != EvCarts || WorldSync.Instance == null || !WorldSync.Instance.FloorReady) return;
@@ -92,7 +102,7 @@ namespace GungeonOnline.Replication
                 ApplyCarts(ref r);
             });
         }
-        public void OnFloorChanged() { carts = null; movers = null; rolling.Clear(); guestKicked.Clear(); }
+        public void OnFloorChanged() { carts = null; movers = null; barrels = null; rolling.Clear(); guestKicked.Clear(); }
 
         static bool ClientBlock() => !IsClient || scope;
 
@@ -125,7 +135,7 @@ namespace GungeonOnline.Replication
             // Straight to the host (SendAt only reaches players the host has marked ready, which a guest never has).
             var w = Instance.w;
             w.Reset(); w.U8(EvKickReq); w.F32(__state.x); w.F32(__state.y); w.I32(NetSession.LocalSlot);
-            NetSession.Instance.Node.Broadcast((byte)Channel.Event, w.ToArray(), Delivery.ReliableOrdered);
+            NetSession.Instance.Node.Broadcast((byte)Channel.Props, w.ToArray(), Delivery.ReliableOrdered);
             return true;
         }
 
@@ -296,7 +306,7 @@ namespace GungeonOnline.Replication
         {
             SendMyCart();
             if (IsHostSession) SendRolling();
-            if (IsHostSession && SceneObjects.OnDungeonFloor && WorldSync.Instance != null && WorldSync.Instance.ReadyPeers > 0) SendMovers();
+            if (IsHostSession && SceneObjects.OnDungeonFloor && WorldSync.Instance != null && WorldSync.Instance.ReadyPeers > 0) { SendMovers(); SendBarrels(); }
             if (!IsHostSession || !SceneObjects.OnDungeonFloor || Time.realtimeSinceStartup < nextCarts) return;
             nextCarts = Time.realtimeSinceStartup + 1f / 30f;
             var list = Carts();
@@ -359,6 +369,87 @@ namespace GungeonOnline.Replication
         }
 
         public int MoverUpdates;
+
+        // ---------------- Barrels ----------------
+        // Every kickable thing on the floor, in the same order on every machine (by where it started). While any of
+        // them moves on the host, all their positions go out ten times a second; guests put theirs there and stop
+        // their own roll when the host's has stopped. Matching by "nearest" picked the wrong barrel at times.
+
+        List<KickableObject> barrels;
+        Vector2[] barrelSent;
+        float nextBarrels, barrelsQuietUntil;
+
+        List<KickableObject> Barrels()
+        {
+            if (barrels == null)
+            {
+                barrels = SceneObjects.All<KickableObject>();
+                barrels.Sort((a, b) =>
+                {
+                    Vector2 pa = a.transform.position, pb = b.transform.position;
+                    int c = pa.x.CompareTo(pb.x);
+                    return c != 0 ? c : pa.y.CompareTo(pb.y);
+                });
+                barrelSent = new Vector2[barrels.Count];
+                for (int i = 0; i < barrels.Count; i++) barrelSent[i] = barrels[i] ? (Vector2)barrels[i].transform.position : Vector2.zero;
+            }
+            return barrels;
+        }
+
+        void SendBarrels()
+        {
+            if (Time.realtimeSinceStartup < nextBarrels) return;
+            nextBarrels = Time.realtimeSinceStartup + 0.1f;
+            var list = Barrels();
+            if (list.Count == 0) return;
+            bool moved = false;
+            for (int i = 0; i < list.Count; i++)
+                if (list[i] && ((Vector2)list[i].transform.position - barrelSent[i]).sqrMagnitude > 0.0004f) { moved = true; barrelSent[i] = list[i].transform.position; }
+            float now = Time.realtimeSinceStartup;
+            if (moved) barrelsQuietUntil = now + 2f; // keep sending a little after they stop, so the last word lands
+            else if (now > barrelsQuietUntil) return;
+            w.Reset(); w.U8(EvBarrels); w.U16((ushort)Mathf.Min(1000, list.Count));
+            for (int i = 0; i < list.Count && i < 1000; i++)
+            {
+                var k = list[i];
+                bool alive = k && k.specRigidbody && k.specRigidbody.enabled;
+                Vector2 p = k ? (Vector2)k.transform.position : Vector2.zero;
+                w.F32(p.x); w.F32(p.y);
+                w.U8((byte)((alive ? 1 : 0) | (alive && k.specRigidbody.Velocity.sqrMagnitude > 0.0001f ? 2 : 0)));
+            }
+            var msg = w.ToArray();
+            var ws = WorldSync.Instance;
+            foreach (var c in NetSession.Instance.Node.Connections)
+                if (ws != null && ws.IsReady(c)) c.Send((byte)Channel.Props, msg, Delivery.Unreliable);
+        }
+
+        public int BarrelUpdates;
+        static readonly System.Reflection.MethodInfo stopRolling = AccessTools.Method(typeof(KickableObject), "StopRolling");
+
+        void ApplyBarrels(ref WireReader r)
+        {
+            if (!SceneObjects.OnDungeonFloor) return;
+            int n = r.U16();
+            var list = Barrels();
+            for (int i = 0; i < n; i++)
+            {
+                var p = new Vector2(r.F32(), r.F32());
+                int f = r.U8();
+                if (i >= list.Count || !list[i] || (f & 1) == 0) continue;
+                var k = list[i];
+                if (!k.specRigidbody || !k.specRigidbody.enabled) continue;
+                bool hostRolling = (f & 2) != 0;
+                bool mineRolling = k.specRigidbody.Velocity.sqrMagnitude > 0.0001f;
+                float d2 = ((Vector2)k.transform.position - p).sqrMagnitude;
+                // Rolling on both: our own roll keeps it smooth; only a real gap is closed.
+                if (hostRolling && mineRolling && d2 < 1f) continue;
+                if (!hostRolling && mineRolling) try { stopRolling.Invoke(k, new object[] { false }); } catch { }
+                if (d2 < 0.0025f) continue;
+                k.transform.position = new Vector3(p.x, p.y, k.transform.position.z);
+                k.specRigidbody.Reinitialize();
+                BarrelUpdates++;
+            }
+        }
 
         void ApplyMovers(ref WireReader r)
         {

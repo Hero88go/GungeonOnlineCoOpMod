@@ -110,11 +110,25 @@ namespace GungeonOnline
             catch (System.Exception e) { Log.LogError(what + " patches failed to install: " + e.Message); }
         }
 
-        static void OnGameOver()
+        static bool OnGameOver()
         {
+            // A guest's run ends only when nobody is standing (or on the host's word). The game's own death code asks
+            // about "the other player", which after a friend rejoined could miss a living teammate.
+            if (Session.NetSession.Active && !Session.NetSession.IsHost && !Replication.VitalsSync.ApplyingHostGameOver)
+            {
+                var me = Game.PlayerSlots.Local;
+                foreach (var p in Game.NPlayers.Players.All)
+                    if (p != me && Game.NPlayers.Players.IsLiving(p))
+                    {
+                        Plugin.Log.LogInfo("Game over skipped: a teammate is still up (" + new System.Diagnostics.StackTrace(1, false).ToString().Replace(System.Environment.NewLine, " < ") + ")");
+                        GameManager.Instance.ForceUnpause();
+                        return false;
+                    }
+            }
             Plugin.Log.LogInfo("Game over (everyone is down)");
             Replication.VitalsSync.LastGameOver = UnityEngine.Time.realtimeSinceStartup;
             if (Session.NetSession.Active && Session.NetSession.IsHost) { Session.RunBackup.MarkEnded(); Replication.VitalsSync.Instance?.SendGameOver(); }
+            return true;
         }
 
         System.Collections.IEnumerator Welcome()

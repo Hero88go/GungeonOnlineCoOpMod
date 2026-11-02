@@ -265,6 +265,7 @@ namespace GungeonOnline.Replication
 
         public const byte EvGameOver = 11; // routed by WorldSync (the 40s are all taken)
         public static float LastGameOver = -1000f;
+        public static bool ApplyingHostGameOver;
 
         public void SendGameOver()
         {
@@ -279,7 +280,9 @@ namespace GungeonOnline.Replication
             Plugin.Log.LogInfo("Vitals: the host's run is over, ending it here too");
             var me = PlayerSlots.Local;
             if (me) AmmonomiconDeathPageController.LastKilledPlayerPrimary = true;
-            GameManager.Instance.DoGameOver(me && me.healthHaver ? me.healthHaver.lastIncurredDamageSource : "");
+            ApplyingHostGameOver = true;
+            try { GameManager.Instance.DoGameOver(me && me.healthHaver ? me.healthHaver.lastIncurredDamageSource : ""); }
+            finally { ApplyingHostGameOver = false; }
         }
 
         void SendReady(byte[] msg, int exceptSlot = -1)
