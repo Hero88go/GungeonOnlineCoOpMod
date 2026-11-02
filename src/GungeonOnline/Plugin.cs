@@ -113,7 +113,8 @@ namespace GungeonOnline
         static void OnGameOver()
         {
             Plugin.Log.LogInfo("Game over (everyone is down)");
-            if (Session.NetSession.Active && Session.NetSession.IsHost) Session.RunBackup.MarkEnded();
+            Replication.VitalsSync.LastGameOver = UnityEngine.Time.realtimeSinceStartup;
+            if (Session.NetSession.Active && Session.NetSession.IsHost) { Session.RunBackup.MarkEnded(); Replication.VitalsSync.Instance?.SendGameOver(); }
         }
 
         System.Collections.IEnumerator Welcome()

@@ -752,6 +752,7 @@ namespace GungeonOnline.Replication
                 if (type >= 80 && type < 90) { ApplyingHost = false; var qr = new WireReader(data, 1, data.Length - 1); PropSync.Instance?.Apply(type, ref qr); return; }
                 if (type == 45) { var ir = new WireReader(data, 1, data.Length - 1); InventorySync.Instance?.Apply(ref ir); return; }
                 if ((type >= 50 && type < 60) || (type >= 90 && type < 100)) { ApplyingHost = false; var pr = new WireReader(data, 1, data.Length - 1); PickupSync.Instance?.Apply(null, type, ref pr); return; }
+                if (type == VitalsSync.EvGameOver) { VitalsSync.Instance?.ApplyGameOver(); return; }
                 switch (type)
                 {
                     case EvSpawn: ApplySpawn(ref r); break;

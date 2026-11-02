@@ -259,6 +259,29 @@ namespace GungeonOnline.Replication
             if (own != null) c.Send((byte)Channel.Event, own, Delivery.ReliableOrdered);
         }
 
+        // ---------------- Game over ----------------
+        // The host's run ending ends it for everyone. Each guest used to decide by itself when its copies were all
+        // down; one that had a teammate's copy become a ghost by another way never ended its run.
+
+        public const byte EvGameOver = 11; // routed by WorldSync (the 40s are all taken)
+        public static float LastGameOver = -1000f;
+
+        public void SendGameOver()
+        {
+            w.Reset(); w.U8(EvGameOver);
+            SendReady(w.ToArray());
+        }
+
+        public void ApplyGameOver()
+        {
+            if (NetSession.IsHost || Time.realtimeSinceStartup - LastGameOver < 60f || Game.SceneObjects.InBreach) return;
+            if (GameManager.Instance.IsLoadingLevel || Game.RunSync.CloneInProgress) return;
+            Plugin.Log.LogInfo("Vitals: the host's run is over, ending it here too");
+            var me = PlayerSlots.Local;
+            if (me) AmmonomiconDeathPageController.LastKilledPlayerPrimary = true;
+            GameManager.Instance.DoGameOver(me && me.healthHaver ? me.healthHaver.lastIncurredDamageSource : "");
+        }
+
         void SendReady(byte[] msg, int exceptSlot = -1)
         {
             var ws = WorldSync.Instance;
