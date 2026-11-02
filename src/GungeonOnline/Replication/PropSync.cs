@@ -564,6 +564,7 @@ namespace GungeonOnline.Replication
                         {
                             var f = Nearest(SceneObjects.All<FlippableCover>(), p, x => !x.IsFlipped);
                             if (f) { f.Flip((DungeonData.Direction)extra); Flips++; }
+                            if (Dev.DevEnv.IsHarness) Plugin.Log.LogInfo($"PROPSYNC flip from host at {p} dir={extra} matched={(f ? ((Vector2)f.transform.position).ToString() : "none")} flipped={(f ? f.IsFlipped : false)}");
                             break;
                         }
                 }
