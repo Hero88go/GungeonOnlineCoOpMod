@@ -833,6 +833,8 @@ namespace GungeonOnline.Session
             float alpha = mode == 2 || mode == 4 ? 0.45f : 1f;
             bool corner = mode >= 3;
             float y = corner ? UnityEngine.Screen.height - 72 * GungeonUI.Px : 6 * GungeonUI.Px;
+            // Five or more players fill the top of the screen with hearts: the line goes under them.
+            if (!corner && Game.NPlayers.Players.Count > 4) y = 66 * GungeonUI.Px;
             // One short line, however many friends: the worst connection sets the colour.
             var bad = new List<string>();
             Color col = Color.white; float worst = -1f; string single = null, worstName = null;

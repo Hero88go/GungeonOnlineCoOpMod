@@ -110,22 +110,30 @@ namespace GungeonOnline.Game
 
         // ---------- Faces beside the hearts ----------
 
+        static float nextFaceLog;
+
         static void DrawPortraits()
         {
             if (!NPlayers.HudPatches.PortraitsOn || !GameManager.HasInstance || GameManager.Instance.AllPlayers == null) return;
             var ui = GameUIRoot.Instance;
             if (!ui) return;
             int px = GungeonUI.Px;
+            bool log = Dev.DevEnv.IsHarness && Time.realtimeSinceStartup >= nextFaceLog;
+            if (log) nextFaceLog = Time.realtimeSinceStartup + 10f;
             foreach (var p in GameManager.Instance.AllPlayers)
             {
-                if (!p || !NPlayers.HudPatches.HeartRow(ui, p.PlayerIDX, out var row, out float iconH)) continue;
+                if (!p) continue;
+                bool hasRow = NPlayers.HudPatches.HeartRow(ui, p.PlayerIDX, out var row, out float iconH);
+                if (log) Plugin.Log.LogInfo($"FACE idx={p.PlayerIDX} {p.characterIdentity} row={(hasRow ? row.ToString() : "none")} hearts={(p.PlayerIDX < ui.heartControllers.Count ? ui.heartControllers[p.PlayerIDX].name : "-")}");
+                if (!hasRow) continue;
                 string head = Head(p);
                 var hs = GungeonUI.SpriteSize(head);
                 if (hs.y <= 0) continue;
                 if (iconH <= 0f) iconH = row.height;
                 float h = iconH * NPlayers.HudPatches.PortraitScale, w = hs.x * h / hs.y;
-                bool left = p.PlayerIDX % 2 == 0;
-                float x = left ? row.xMin - w - 1.5f * px : row.xMax + 1.5f * px;
+                // Always on the left of the hearts: on the left half that is the screen edge (room is made there), on the
+                // right half it is the gap toward the middle (the gap beside each block leaves room for one face).
+                float x = row.xMin - w - 1.5f * px;
                 float y = row.yMin + iconH / 2f - h / 2f; // beside the first line of hearts
                 x = Mathf.Clamp(x, 0f, Screen.width - w);
                 var col = ColorFor(p);

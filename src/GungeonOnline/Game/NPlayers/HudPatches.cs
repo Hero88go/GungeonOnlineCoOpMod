@@ -157,6 +157,9 @@ namespace GungeonOnline.Game.NPlayers
         {
             var ui = GameUIRoot.Instance;
             if (ui && ui.heartControllers != null) ApplyPortraitRoom(ui);
+            // With five or more, the blocks line up with each other: keep placing them (a player who joins or gains
+            // hearts later moves the ones beside them).
+            if (ui && ui.heartControllers != null && ui.heartControllers.Count > 4 && Time.frameCount % 10 == 0) Sync();
             if (!ui || ui.heartControllers == null || !Session.NetSession.Active) { lastHudMode = -1; return; }
             int mode = TeammateMode();
             if (mode != lastHudMode)
@@ -219,9 +222,12 @@ namespace GungeonOnline.Game.NPlayers
                 if (room <= 0f) room = PortraitRoom; // no heart drawn this frame: keep the last room
             }
             PortraitRoom = room;
+            // Only player 1's panels move (their face goes on the screen-edge side). Player 2's panels are tied to
+            // the right edge and the game kept pulling them back, so their face sat half off the screen at times:
+            // faces on the right half now go on the inner side of the hearts instead, where there is always room.
             for (int id = 0; id < 2 && id < ui.heartControllers.Count; id++)
             {
-                float dx = id == 0 ? room : -room;
+                float dx = id == 0 ? room : 0f;
                 Shift(ui.heartControllers[id] ? ui.heartControllers[id].GetComponent<dfControl>() : null, Icons(ui.heartControllers[id], null), dx);
                 Shift(ui.blankControllers[id] ? ui.blankControllers[id].GetComponent<dfControl>() : null, Icons(null, ui.blankControllers[id]), dx);
             }
@@ -357,14 +363,16 @@ namespace GungeonOnline.Game.NPlayers
         }
 
         /// <summary>
-        /// Players 3, 5 and 7 continue player 1's rows to the right, players 4, 6 and 8 continue player 2's rows to the
-        /// left, each just beside the one before. The HUD stays as tall as normal co-op, and follows as hearts are
-        /// gained or lost.
+        /// Players 3 and 4 sit on player 1's and player 2's rows, beside them (toward the middle). With more than four,
+        /// players 5 and 6 start a second row under players 3 and 4 (clear of your shell and key counters and of the
+        /// minimap in the corners), and players 7 and 8 continue that row toward the middle. The HUD follows as hearts
+        /// are gained or lost.
         /// </summary>
         static void PlaceBeside(GameUIRoot ui, int k)
         {
             int side = k % 2;
-            int before = k - 2; // the player this one sits beside (1 or 2 for players 3 and 4)
+            bool underneath = k == 4 || k == 5;          // first in the second row: under player 3 or 4
+            int before = k - 2;                           // the player this one lines up with
             float gap = 18f + PortraitRoom; // and room for this player's face, when portraits are on
             var rows = new[] { Icons(ui.heartControllers[before], ui.blankControllers[before]), Icons(ui.heartControllers[k], ui.blankControllers[k]) };
             // One shared edge for both rows (hearts and blanks), so each player's block reads as a column.
@@ -373,13 +381,57 @@ namespace GungeonOnline.Game.NPlayers
             var hp = ui.heartControllers[k].GetComponent<dfPanel>();
             var bp = ui.blankControllers[k].GetComponent<dfPanel>();
             if (r1 <= l1) { l1 = hp.GetAbsolutePosition().x; r1 = l1; } // no icons yet: place the empty panel
-            float want = side == 0 ? r0 + gap : l0 - gap - (r1 - l1);
+            float want = underneath ? (side == 0 ? l0 : r0 - (r1 - l1)) : side == 0 ? r0 + gap : l0 - gap - (r1 - l1);
             float dx = want - l1;
-            if (Mathf.Abs(dx) < 0.5f) return;
+            float dy = 0f;
+            var ap = ui.heartControllers[before].GetComponent<dfPanel>();
+            // Heights from the panels' own positions: a panel moved this frame reports its new spot only there.
+            if (underneath)
+            {
+                // Under player 3 or 4: their block's height (hearts and blanks) plus a little room.
+                var abp = ui.blankControllers[before].GetComponent<dfPanel>();
+                dy = abp.RelativePosition.y + abp.Height + 10f - hp.RelativePosition.y;
+            }
+            else if (k >= 6) dy = ap.RelativePosition.y - hp.RelativePosition.y; // same row as player 5 or 6
+            if (k == 7 && Players.Count > 7 && Edges(Icons(ui.heartControllers[6], ui.blankControllers[6]), out float l6, out float r6) && want < r6 + gap)
+            {
+                // Players 7 and 8 would run into each other in the middle (lots of hearts or shields): player 8 goes
+                // on a third row, under player 6.
+                want = r0 - (r1 - l1);
+                dx = want - l1;
+                var b5 = ui.blankControllers[5].GetComponent<dfPanel>();
+                dy = b5.RelativePosition.y + b5.Height + 10f - hp.RelativePosition.y;
+            }
+            if (k >= 4) KeepOnRow(ui, k, hp, bp);
+            if (Mathf.Abs(dx) < 0.5f && Mathf.Abs(dy) < 0.5f) return;
             // The game places each icon once, from the panel's position: move the panels and the icons together.
-            var shift = new Vector3(dx, 0f, 0f);
+            var shift = new Vector3(dx, dy, 0f);
             hp.RelativePosition += shift; bp.RelativePosition += shift;
             foreach (var c in rows[1]) c.RelativePosition += shift;
+        }
+
+        /// <summary>
+        /// Second-row players: the game puts each heart, shield and blank in a little holder of its own and sets the
+        /// shield's height inside it on every health change, which pulled shields back up to the first row. Any icon
+        /// that is not on its panel's row is moved there through its holder.
+        /// </summary>
+        static void KeepOnRow(GameUIRoot ui, int k, dfPanel hp, dfPanel bp)
+        {
+            float tile = Pixelator.Instance ? Pixelator.Instance.CurrentTileScale : 3f;
+            Fix(ui, Icons(ui.heartControllers[k], null), hp.GetAbsolutePosition().y, tile);
+            Fix(ui, Icons(null, ui.blankControllers[k]), bp.GetAbsolutePosition().y, tile);
+        }
+
+        static void Fix(GameUIRoot ui, List<dfControl> icons, float rowY, float tile)
+        {
+            foreach (var c in icons)
+            {
+                float d = rowY - c.GetAbsolutePosition().y;
+                if (Mathf.Abs(d) <= tile * 2f + 1f) continue; // on the row (a crest sits a little lower)
+                var holder = ui.GetMotionGroupParent(c);
+                if (holder) holder.RelativePosition += new Vector3(0f, d, 0f);
+                else c.RelativePosition += new Vector3(0f, d, 0f);
+            }
         }
 
         static List<dfControl> Icons(GameUIHeartController h, GameUIBlankController b)
