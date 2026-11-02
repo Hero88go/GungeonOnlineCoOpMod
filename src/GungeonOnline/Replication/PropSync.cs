@@ -17,7 +17,7 @@ namespace GungeonOnline.Replication
     internal sealed class PropSync : MonoBehaviour
     {
         public static PropSync Instance { get; private set; }
-        const byte EvMinor = 80, EvMajor = 81, EvFlip = 82, EvCarts = 83, EvElevator = 84, EvMyCart = 85, EvKick = 86, EvKickPos = 87;
+        const byte EvMinor = 80, EvMajor = 81, EvFlip = 82, EvCarts = 83, EvElevator = 84, EvMyCart = 85, EvKick = 86, EvKickPos = 87, EvMovers = 88;
 
         static bool scope;
         static bool IsClient => NetSession.Active && !NetSession.IsHost;
@@ -65,12 +65,14 @@ namespace GungeonOnline.Replication
             NetSession.Instance.On(Channel.Props, (c, data, d) =>
             {
                 if (data.Length > 0 && data[0] == EvMyCart && NetSession.IsHost) { var mr = new WireReader(data, 1, data.Length - 1); ApplyGuestCart(c, ref mr); return; }
+                if (data.Length > 0 && data[0] == EvMovers && !NetSession.IsHost && WorldSync.Instance != null && WorldSync.Instance.FloorReady)
+                { var vr = new WireReader(data, 1, data.Length - 1); ApplyMovers(ref vr); return; }
                 if (data.Length == 0 || data[0] != EvCarts || WorldSync.Instance == null || !WorldSync.Instance.FloorReady) return;
                 var r = new WireReader(data, 1, data.Length - 1);
                 ApplyCarts(ref r);
             });
         }
-        public void OnFloorChanged() { carts = null; }
+        public void OnFloorChanged() { carts = null; movers = null; rolling.Clear(); guestKicked.Clear(); }
 
         static bool ClientBlock() => !IsClient || scope;
 
@@ -203,6 +205,7 @@ namespace GungeonOnline.Replication
         {
             SendMyCart();
             if (IsHostSession) SendRolling();
+            if (IsHostSession && SceneObjects.OnDungeonFloor && WorldSync.Instance != null && WorldSync.Instance.ReadyPeers > 0) SendMovers();
             if (!IsHostSession || !SceneObjects.OnDungeonFloor || Time.realtimeSinceStartup < nextCarts) return;
             nextCarts = Time.realtimeSinceStartup + 1f / 30f;
             var list = Carts();
@@ -217,6 +220,72 @@ namespace GungeonOnline.Replication
             var ws = WorldSync.Instance;
             foreach (var c in NetSession.Instance.Node.Connections)
                 if (ws != null && ws.IsReady(c)) c.Send((byte)Channel.Props, msg, Delivery.Unreliable);
+        }
+
+        // ---------------- Moving platforms ----------------
+        // Platforms and other things on a path (not enemies, not carts) start moving when each game gets to them,
+        // so they ran at different spots: the host's position is sent and the guests' copies follow it.
+
+        List<PathMover> movers;
+        float nextMovers;
+
+        List<PathMover> Movers()
+        {
+            if (movers == null)
+            {
+                movers = new List<PathMover>();
+                foreach (var m in SceneObjects.All<PathMover>())
+                    if (m && m.Path != null && m.Path.nodes != null && m.Path.nodes.Count > 0 && m.RoomHandler != null && !m.GetComponent<AIActor>() && !m.GetComponent<MineCartController>())
+                        movers.Add(m);
+                // Ordered by where each path starts: the same on every machine.
+                movers.Sort((a, b) =>
+                {
+                    Vector2 pa = a.GetPositionOfNode(a.PathStartNode), pb = b.GetPositionOfNode(b.PathStartNode);
+                    int c = pa.x.CompareTo(pb.x);
+                    if (c == 0) c = pa.y.CompareTo(pb.y);
+                    return c != 0 ? c : a.name.CompareTo(b.name);
+                });
+            }
+            return movers;
+        }
+
+        void SendMovers()
+        {
+            if (Time.realtimeSinceStartup < nextMovers) return;
+            nextMovers = Time.realtimeSinceStartup + 1f / 15f;
+            var list = Movers();
+            if (list.Count == 0) return;
+            w.Reset(); w.U8(EvMovers); w.U8((byte)Mathf.Min(255, list.Count));
+            for (int i = 0; i < list.Count && i < 255; i++)
+            {
+                Vector2 p = list[i] ? (Vector2)list[i].transform.position : Vector2.zero;
+                w.F32(p.x); w.F32(p.y);
+            }
+            var msg = w.ToArray();
+            var ws = WorldSync.Instance;
+            foreach (var c in NetSession.Instance.Node.Connections)
+                if (ws != null && ws.IsReady(c)) c.Send((byte)Channel.Props, msg, Delivery.Unreliable);
+        }
+
+        public int MoverUpdates;
+
+        void ApplyMovers(ref WireReader r)
+        {
+            if (!SceneObjects.OnDungeonFloor) return;
+            int n = r.U8();
+            var list = Movers();
+            for (int i = 0; i < n; i++)
+            {
+                var p = new Vector2(r.F32(), r.F32());
+                if (i >= list.Count || !list[i]) continue;
+                var m = list[i];
+                if (((Vector2)m.transform.position - p).sqrMagnitude < 0.01f) continue;
+                // Small differences are left to the platform's own movement (it keeps moving between updates).
+                if (((Vector2)m.transform.position - p).sqrMagnitude < 0.25f && m.enabled) continue;
+                m.transform.position = new Vector3(p.x, p.y, m.transform.position.z);
+                if (m.specRigidbody) m.specRigidbody.Reinitialize();
+                MoverUpdates++;
+            }
         }
 
         public void ApplyCarts(ref WireReader r)

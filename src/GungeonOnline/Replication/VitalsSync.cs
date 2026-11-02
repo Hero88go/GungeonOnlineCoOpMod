@@ -379,13 +379,18 @@ namespace GungeonOnline.Replication
                         if (p.Blanks != blanks) p.Blanks = blanks;
                         if (p.carriedConsumables != null)
                         {
-                            if (p.carriedConsumables.Currency != money) p.carriedConsumables.Currency = money;
-                            if (p.carriedConsumables.KeyBullets != keys) p.carriedConsumables.KeyBullets = keys;
+                            if (p != GameManager.Instance.PrimaryPlayer && !SharedWallet(p)) SetWalletQuietly(p.carriedConsumables, money, keys);
+                            else
+                            {
+                                if (p.carriedConsumables.Currency != money) p.carriedConsumables.Currency = money;
+                                if (p.carriedConsumables.KeyBullets != keys) p.carriedConsumables.KeyBullets = keys;
+                            }
                         }
                     }
                     finally { scope = false; }
                     VitalsApplied++;
                 }
+                if (r.Remaining > 0) hostSharedMoney = r.Bool();
             }
         }
 
@@ -461,8 +466,44 @@ namespace GungeonOnline.Replication
 
         public static int WantedGun(int slot) => Instance != null && Instance.gunWanted.TryGetValue(slot, out var id) ? id : int.MinValue;
 
+        // ---------------- Wallets ----------------
+        // Like local co-op, every player normally shares the first player's shells and keys. With SharedMoney off
+        // (host setting) each player gets a wallet of their own on every machine; the host still says how much is in it.
+
+        static bool hostSharedMoney = true;
+        static bool SharedMoneyNow => NetSession.IsHost ? NetConfig.SharedMoney.Value : hostSharedMoney;
+        static bool SharedWallet(PlayerController p) => GameManager.Instance.PrimaryPlayer && p.carriedConsumables == GameManager.Instance.PrimaryPlayer.carriedConsumables;
+        static readonly AccessTools.FieldRef<PlayerConsumables, int> walletMoney = AccessTools.FieldRefAccess<PlayerConsumables, int>("m_currency");
+        static readonly AccessTools.FieldRef<PlayerConsumables, int> walletKeys = AccessTools.FieldRefAccess<PlayerConsumables, int>("m_keyBullets");
+
+        /// <summary>Another player's own wallet: set without redrawing this screen's money counter (it shows yours).</summary>
+        static void SetWalletQuietly(PlayerConsumables c, int money, int keys) { walletMoney(c) = money; walletKeys(c) = keys; }
+
+        static void KeepWallets()
+        {
+            var prim = GameManager.Instance.PrimaryPlayer;
+            if (!prim || prim.carriedConsumables == null) return;
+            bool shared = SharedMoneyNow;
+            foreach (var p in GameManager.Instance.AllPlayers)
+            {
+                if (!p || p == prim) continue;
+                bool same = p.carriedConsumables == prim.carriedConsumables;
+                if (shared && !same) p.carriedConsumables = prim.carriedConsumables;
+                else if (!shared && same)
+                {
+                    var own = new PlayerConsumables();
+                    SetWalletQuietly(own, prim.carriedConsumables.Currency, prim.carriedConsumables.KeyBullets);
+                    p.carriedConsumables = own;
+                }
+            }
+        }
+
         void LateUpdateImpl()
         {
+            if (NetSession.Active && GameManager.HasInstance && !GameManager.Instance.IsLoadingLevel)
+            {
+                try { KeepWallets(); } catch (System.Exception e) { Plugin.Log.LogWarning("Vitals: wallets " + e.Message); }
+            }
             if (heldWhileLoading.Count > 0 && NetSession.Active && !Loading)
             {
                 var held = new List<KeyValuePair<Connection, byte[]>>(heldWhileLoading);
@@ -510,6 +551,7 @@ namespace GungeonOnline.Replication
                 w.I32(p.carriedConsumables != null ? p.carriedConsumables.Currency : 0);
                 w.I16((short)(p.carriedConsumables != null ? p.carriedConsumables.KeyBullets : 0));
             }
+            w.Bool(NetConfig.SharedMoney.Value);
             var msg = w.ToArray();
             var ws = WorldSync.Instance;
             foreach (var c in NetSession.Instance.Node.Connections)

@@ -201,10 +201,57 @@ namespace GungeonOnline.Session
             return b;
         }
 
-        static Backup LoadLatest()
+        static Backup LoadLatest() => LoadFile(Latest);
+
+        static Backup LoadFile(string path)
         {
-            try { return File.Exists(Latest) ? Parse(File.ReadAllText(Latest)) : null; }
+            try { return File.Exists(path) ? Parse(File.ReadAllText(path)) : null; }
             catch (Exception e) { Plugin.Log.LogWarning("RunBackup: unreadable backup: " + e.Message); return null; }
+        }
+
+        // ---------------- Save slots ----------------
+        // Besides the automatic save (always the newest), the host can keep runs in three slots and resume any of them.
+
+        public const int Slots = 3;
+        static string SlotPath(int slot) => Path.Combine(Dir, "slot-" + slot + ".txt");
+
+        /// <summary>One line for a slot: what is in it, or "Empty". Slot 0 is the automatic save.</summary>
+        public static string SlotSummary(int slot)
+        {
+            var b = LoadFile(slot == 0 ? Latest : SlotPath(slot));
+            if (b == null || b.FloorIndex <= 0) return "Empty";
+            var names = new List<string>();
+            foreach (var p in b.Players) names.Add(string.IsNullOrEmpty(p.Prefab) ? "?" : p.Prefab.Replace("Player", ""));
+            string when = DateTime.TryParse(b.Saved, out var t) ? t.ToString("MMM d HH:mm") : b.Saved;
+            return $"Floor {b.FloorIndex}, {string.Join(" + ", names.ToArray())}, {when}" + (b.Ended ? " (run over)" : "");
+        }
+
+        public static bool SlotUsable(int slot)
+        {
+            var b = LoadFile(slot == 0 ? Latest : SlotPath(slot));
+            return b != null && !b.Ended && b.FloorIndex > 0;
+        }
+
+        public static bool SaveToSlot(int slot)
+        {
+            if (Instance == null || !NetSession.Active || !NetSession.IsHost || RunSync.CurrentIndex < 0 || SceneObjects.InBreach) return false;
+            try
+            {
+                File.WriteAllText(SlotPath(slot), Serialize(Capture()));
+                Plugin.Log.LogInfo("RunBackup: saved to slot " + slot);
+                return true;
+            }
+            catch (Exception e) { Plugin.Log.LogError("RunBackup slot save: " + e.Message); return false; }
+        }
+
+        public static bool AnySlotUsable
+        {
+            get
+            {
+                if (!SceneObjects.InBreach || (NetSession.Active && !NetSession.IsHost) || PendingResume != null) return false;
+                for (int i = 0; i <= Slots; i++) if (SlotUsable(i)) return true;
+                return false;
+            }
         }
 
         // ---------------- Resuming ----------------
@@ -221,9 +268,11 @@ namespace GungeonOnline.Session
             }
         }
 
-        public static void ResumeAsHost()
+        public static void ResumeAsHost() => ResumeSlot(0);
+
+        public static void ResumeSlot(int slot)
         {
-            var b = LoadLatest();
+            var b = LoadFile(slot == 0 ? Latest : SlotPath(slot));
             if (b == null) return;
             PendingResume = b;
             restoredSlots.Clear();

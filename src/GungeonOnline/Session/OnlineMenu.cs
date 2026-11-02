@@ -16,7 +16,7 @@ namespace GungeonOnline.Session
         public static OnlineMenu Instance { get; private set; }
         public static bool IsOpen => Instance != null && Instance.open;
 
-        enum Screen { Home, Host, Join, Session, Settings, ConfirmLeave, SetGame, SetFriend, SetDisplay, SetHelp }
+        enum Screen { Home, Host, Join, Session, Settings, ConfirmLeave, SetGame, SetFriend, SetDisplay, SetHelp, SaveSlots, ResumeSlots }
 
         sealed class Entry
         {
@@ -173,7 +173,8 @@ namespace GungeonOnline.Session
             switch (screen)
             {
                 case Screen.Home: case Screen.Session: Close(); break;
-                case Screen.ConfirmLeave: Go(Screen.Session); break;
+                case Screen.ConfirmLeave: case Screen.SaveSlots: Go(Screen.Session); break;
+                case Screen.ResumeSlots: Go(Screen.Home); break;
                 case Screen.SetGame: case Screen.SetFriend: case Screen.SetDisplay: case Screen.SetHelp: Go(Screen.Settings); break;
                 default: Go(NetSession.Active ? Screen.Session : Screen.Home); break;
             }
@@ -203,7 +204,7 @@ namespace GungeonOnline.Session
             switch (screen)
             {
                 case Screen.Home:
-                    if (RunBackup.CanResume) Add("Resume saved run", () => { RunBackup.ResumeAsHost(); Go(Screen.Host); });
+                    if (RunBackup.AnySlotUsable) Add("Resume saved run", () => Go(Screen.ResumeSlots));
                     if (!string.IsNullOrEmpty(NetConfig.LastJoin.Value)) Add("Rejoin last game", () => { s.RejoinLast(); Go(Screen.Session); });
                     Add("Host", () => { s.Host(); Go(Screen.Host); });
                     Add("Join", () => Go(Screen.Join));
@@ -237,6 +238,8 @@ namespace GungeonOnline.Session
                         Add("Copy my reply code", () => { GUIUtility.systemCopyBuffer = s.InviteCodeText; Toasts.Show("Reply code copied. Send it to the host, and they pick Let in friend."); });
                     Add("Settings", () => Go(Screen.Settings));
                     if (NetSession.IsHost && s.InviteCodeText != null) Add("Show invite code", () => Go(Screen.Host));
+                    if (InRun) Add("I'm stuck", () => { Game.Unstuck.Now(); Close(); });
+                    if (NetSession.IsHost && InRun) Add("Save run to a slot", () => Go(Screen.SaveSlots));
                     // Stop for the night: the run is saved and can be resumed any time later from this menu.
                     if (NetSession.IsHost && InRun) Add("Save run and quit", () =>
                     {
@@ -248,6 +251,27 @@ namespace GungeonOnline.Session
                     });
                     Add("Leave", () => { if (InRun) Go(Screen.ConfirmLeave); else { s.Leave("left"); Go(Screen.Home); } });
                     Add("Close", Close);
+                    break;
+                case Screen.SaveSlots:
+                    info = "Keep this run in a slot. Resume it any time from the Breach (Play Online, Resume saved run).";
+                    for (int i = 1; i <= RunBackup.Slots; i++)
+                    {
+                        int slot = i;
+                        Add($"Slot {slot}: {RunBackup.SlotSummary(slot)}", () =>
+                        {
+                            Toasts.Show(RunBackup.SaveToSlot(slot) ? $"Run saved to slot {slot}" : "Could not save the run", 4f, false);
+                            Go(Screen.Session);
+                        });
+                    }
+                    Add("Back", () => Go(Screen.Session));
+                    break;
+                case Screen.ResumeSlots:
+                    for (int i = 0; i <= RunBackup.Slots; i++)
+                    {
+                        int slot = i;
+                        Add((slot == 0 ? "Last autosave: " : $"Slot {slot}: ") + RunBackup.SlotSummary(slot), () => { RunBackup.ResumeSlot(slot); Go(Screen.Host); }, RunBackup.SlotUsable(slot));
+                    }
+                    Add("Back", () => Go(Screen.Home));
                     break;
                 case Screen.ConfirmLeave:
                     info = !InRun ? "Leave this online game?"
@@ -267,6 +291,11 @@ namespace GungeonOnline.Session
                     AddStyleRow();
                     Add("Pausing stops everyone: " + (NetConfig.PauseFreezesEveryone.Value ? "On" : "Off"), () => NetConfig.PauseFreezesEveryone.Value = !NetConfig.PauseFreezesEveryone.Value, true,
                         d => NetConfig.PauseFreezesEveryone.Value = !NetConfig.PauseFreezesEveryone.Value);
+                    Add("Shared shells and keys: " + (NetConfig.SharedMoney.Value ? "On" : "Off"), () => NetConfig.SharedMoney.Value = !NetConfig.SharedMoney.Value, true,
+                        d => NetConfig.SharedMoney.Value = !NetConfig.SharedMoney.Value);
+                    Add("Doors wait for teammates: " + (NetConfig.DoorGraceSeconds.Value > 0f ? NetConfig.DoorGraceSeconds.Value.ToString("0") + " s" : "Off"),
+                        () => NetConfig.DoorGraceSeconds.Value = NetConfig.DoorGraceSeconds.Value >= 5f ? 0f : NetConfig.DoorGraceSeconds.Value + 1f, true,
+                        d => NetConfig.DoorGraceSeconds.Value = Mathf.Clamp(NetConfig.DoorGraceSeconds.Value + d, 0f, 5f));
                     Add("Back", Back);
                     break;
                 case Screen.SetFriend:
@@ -351,6 +380,8 @@ namespace GungeonOnline.Session
                 case Screen.SetDisplay: return "Display";
                 case Screen.SetHelp: return "Help";
                 case Screen.ConfirmLeave: return "Leave?";
+                case Screen.SaveSlots: return "Save run";
+                case Screen.ResumeSlots: return "Resume a run";
                 default: return "Online Co-Op";
             }
         }

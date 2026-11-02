@@ -184,10 +184,39 @@ namespace GungeonOnline.Replication
         void OnHostDestroyed(uint id, Projectile p)
         {
             if (!hostTracked.Remove(id)) return;
-            Vector2 pos = p ? (Vector2)p.transform.position : Vector2.zero;
+            SendDestroy(id, p ? (Vector2)p.transform.position : Vector2.zero);
+        }
+
+        void SendDestroy(uint id, Vector2 pos)
+        {
             w.Reset(); w.U8(EvProjDestroy); w.U32(id); w.F32(pos.x); w.F32(pos.y);
             Send(w.ToArray());
         }
+
+        // Guest: a copy that has stood still with no word from the host for a long time is not a real bullet any
+        // more (its host bullet ended unseen). Holding bullets do not wait this long without a correction.
+        readonly Dictionary<uint, float> stillSince = new Dictionary<uint, float>();
+        float nextStale;
+
+        void ClearStaleCopies()
+        {
+            float now = Time.time;
+            if (now < nextStale) return;
+            nextStale = now + 1f;
+            List<uint> gone = null;
+            foreach (var kv in copies)
+            {
+                var p = kv.Value;
+                if (!p) { (gone ??= new List<uint>()).Add(kv.Key); continue; }
+                bool still = p.Speed < 0.05f;
+                if (!still) { stillSince.Remove(kv.Key); continue; }
+                if (!stillSince.TryGetValue(kv.Key, out var since)) { stillSince[kv.Key] = now; continue; }
+                if (now - since > 8f) { (gone ??= new List<uint>()).Add(kv.Key); copyIds.Remove(p.GetInstanceID()); p.DieInAir(); StaleRemoved++; }
+            }
+            if (gone != null) foreach (var id in gone) { copies.Remove(id); stillSince.Remove(id); }
+        }
+
+        public int StaleRemoved;
 
         int Send(byte[] data)
         {
@@ -208,13 +237,16 @@ namespace GungeonOnline.Replication
 
         void LateUpdateImpl()
         {
+            if (IsClient && copies.Count > 0) ClearStaleCopies();
             if (!IsHostSession || hostTracked.Count == 0) return;
             float now = Time.time;
             var dead = new List<uint>();
             foreach (var kv in hostTracked)
             {
                 var t = kv.Value;
-                if (!t.P) { dead.Add(kv.Key); continue; }
+                // Gone without its destroy (pooled away, removed by a room clear or a resync): tell the guests anyway,
+                // or their copy hangs in the air for good.
+                if (!t.P || !t.P.gameObject.activeInHierarchy) { dead.Add(kv.Key); SendDestroy(kv.Key, t.Pos + t.Vel * (now - t.At)); continue; }
                 Vector2 predicted = t.Pos + t.Vel * (now - t.At);
                 Vector2 actual = t.P.transform.position;
                 if ((actual - predicted).sqrMagnitude < DriftUnits * DriftUnits) continue;
@@ -265,6 +297,7 @@ namespace GungeonOnline.Replication
                         var pos = new Vector2(r.F32(), r.F32());
                         var vel = new Vector2(r.F32(), r.F32());
                         if (!copies.TryGetValue(id, out var p) || !p) { copies.Remove(id); return; }
+                        stillSince.Remove(id);
                         DrawSmoothing.Corrected(p, p.transform.position, pos);
                         p.transform.position = new Vector3(pos.x, pos.y, p.transform.position.z);
                         if (p.specRigidbody) p.specRigidbody.Reinitialize();
@@ -275,6 +308,7 @@ namespace GungeonOnline.Replication
                     {
                         uint id = r.U32();
                         var pos = new Vector2(r.F32(), r.F32());
+                        stillSince.Remove(id);
                         if (copies.TryGetValue(id, out var p) && p)
                         {
                             copyIds.Remove(p.GetInstanceID());

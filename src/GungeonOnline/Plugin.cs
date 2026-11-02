@@ -35,6 +35,7 @@ namespace GungeonOnline
             Game.PresentationGate.Install(harmony);
             TryInstall("ConversationSync", () => Game.ConversationSync.Install(harmony));
             Game.SecondFightLock.Install(harmony);
+            TryInstall("DoorGrace", () => Game.DoorGrace.Install(harmony));
             Game.CombatDoorEntry.Install(harmony);
             Replication.WorldSync.Install(harmony);
             Replication.ProjectileSync.Install(harmony);

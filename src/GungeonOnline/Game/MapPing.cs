@@ -80,6 +80,7 @@ namespace GungeonOnline.Game
 
         void LateUpdate()
         {
+            try { TrackOwnMap(); } catch (System.Exception) { }
             TickMarkers();
             if (!MapOpen) return;
             var me = PlayerSlots.Local;
@@ -124,6 +125,54 @@ namespace GungeonOnline.Game
         }
 
         /// <summary>Called by WorldSync's event router on both sides.</summary>
+        // ---------------- "Looking at the map" ----------------
+        // Another player's map stays on their screen; here a short line says they have it open.
+        public const byte EvMapOpen = 49;
+        static readonly Dictionary<int, bool> othersMapOpen = new Dictionary<int, bool>();
+        bool mapWasOpen;
+
+        void SendMapOpen(int slot, bool open, Connection except)
+        {
+            w.Reset(); w.U8(EvMapOpen); w.U8((byte)slot); w.Bool(open);
+            var msg = w.ToArray();
+            foreach (var c in NetSession.Instance.Node.Connections)
+                if (c != except) c.Send((byte)Channel.Event, msg, Delivery.ReliableOrdered);
+        }
+
+        public static void ApplyMapOpen(Connection from, ref WireReader r)
+        {
+            int slot = r.U8();
+            bool open = r.Bool();
+            if (instance == null) return;
+            if (NetSession.IsHost) instance.SendMapOpen(slot, open, from);
+            if (slot != NetSession.LocalSlot) othersMapOpen[slot] = open;
+        }
+
+        void TrackOwnMap()
+        {
+            if (!NetSession.Active) { othersMapOpen.Clear(); mapWasOpen = false; return; }
+            bool open = MapOpen;
+            if (open == mapWasOpen) return;
+            mapWasOpen = open;
+            SendMapOpen(NetSession.LocalSlot, open, null);
+        }
+
+        void DrawMapNotes()
+        {
+            if (othersMapOpen.Count == 0 || OnlineMenu.IsOpen || MapOpen) return;
+            int px = Mathf.Max(1, GungeonUI.Px);
+            float y = 70 * px;
+            foreach (var kv in othersMapOpen)
+            {
+                if (!kv.Value) continue;
+                string who = "Your friend";
+                foreach (var c in NetSession.Instance.Node.Connections) if (c.Slot == kv.Key) who = GungeonUI.WhoName(c);
+                if (who == "your friend") who = "Your friend";
+                GungeonUI.Text(who + " is looking at the map", new Vector2(10 * px, y), GungeonUI.Font.Small, Color.white);
+                y += 12 * px;
+            }
+        }
+
         public static void Apply(Connection from, ref WireReader r)
         {
             int slot = r.U8();
@@ -236,6 +285,8 @@ namespace GungeonOnline.Game
 
         void OnGUI()
         {
+            if (Event.current.type == EventType.Repaint && NetSession.Active && GungeonUI.Ready)
+                try { DrawMapNotes(); } catch (System.Exception) { }
             if (Event.current.type != EventType.Repaint || pings.Count == 0 || !NetSession.Active || !GungeonUI.Ready) return;
             if (OnlineMenu.IsOpen || MapOpen || !GameManager.HasInstance) return;
             var gm = GameManager.Instance;
