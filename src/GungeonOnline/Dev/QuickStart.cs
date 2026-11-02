@@ -59,6 +59,17 @@ namespace GungeonOnline.Dev
             Plugin.Log.LogInfo("QuickStart: found flag, selecting shortly");
             yield return new WaitForSeconds(1f);
             if (GameManager.Instance.PrimaryPlayer != null) { Plugin.Log.LogInfo("QuickStart: player already chosen"); ScenarioRunner.Begin(); yield break; }
+            // The statue borrowed for a locked character can be one the game removes a moment later: borrow a live one.
+            if (!pick || !pick.gameObject.activeInHierarchy)
+            {
+                string path = want;
+                pick = null;
+                foreach (var f in Object.FindObjectsOfType<FoyerCharacterSelectFlag>())
+                    if (f && f.gameObject.activeInHierarchy && !f.IsCoopCharacter && !f.IsAlternateCostume) { pick = f; break; }
+                if (pick == null) { Plugin.Log.LogWarning("QuickStart: no statue left to pick " + path); yield break; }
+                pick.CharacterPrefabPath = path;
+                Plugin.Log.LogInfo("QuickStart: statue went away, picking " + path + " through another");
+            }
             Plugin.Log.LogInfo("QuickStart: selecting " + pick.CharacterPrefabPath);
             Game.SceneObjects.Breach.StartCoroutine(Game.SceneObjects.Breach.OnSelectedCharacter(0.05f, pick));
             while (GameManager.Instance.PrimaryPlayer == null) yield return null;
