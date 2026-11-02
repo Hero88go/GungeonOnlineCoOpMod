@@ -98,7 +98,7 @@ namespace GungeonOnline.Session
         static Backup Capture()
         {
             var gm = GameManager.Instance;
-            var b = new Backup { Seed = gm.CurrentRunSeed, FloorIndex = RunSync.CurrentIndex, Saved = DateTime.Now.ToString("s") };
+            var b = new Backup { Seed = gm.CurrentRunSeed, FloorIndex = RunSync.RegularIndex, Saved = DateTime.Now.ToString("s") };
             var local = PlayerSlots.Local;
             if (local && local.carriedConsumables != null) { b.Money = local.carriedConsumables.Currency; b.Keys = local.carriedConsumables.KeyBullets; }
             var lobby = FindObjectOfType<Lobby>();

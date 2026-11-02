@@ -19,6 +19,11 @@ namespace GungeonOnline.Game
         const string CustomTag = "custom:";
         /// <summary>Host: the secret floor we are on, or null on a regular floor.</summary>
         static string currentCustom;
+        /// <summary>A secret floor's number: the next regular floor's plus this, so the two never share a number (the
+        /// floor check once compared a friend's next floor with the host's secret one and sent them to the Breach).</summary>
+        public const int SecretFloor = 1000;
+        /// <summary>The regular floor number to save and resume at (a secret floor resumes at the floor after it).</summary>
+        public static int RegularIndex => CurrentIndex >= SecretFloor ? CurrentIndex - SecretFloor : CurrentIndex;
         /// <summary>Index of the floor currently loaded (both machines).</summary>
         public static int CurrentIndex = -1;
         public static RunSync Instance { get; private set; }
@@ -156,9 +161,9 @@ namespace GungeonOnline.Game
             {
                 if (custom == "tt_foyer" || custom == "MainMenu" || custom == "Foyer" || custom == "tt_tutorial" || SceneObjects.InBreach) return true;
                 currentCustom = custom;
-                int index = GM.Field("nextLevelIndex").GetValue<int>();
+                int index = GM.Field("nextLevelIndex").GetValue<int>() + SecretFloor;
                 CurrentIndex = index;
-                ReseedForFloor(gm.CurrentRunSeed, index + 1000);
+                ReseedForFloor(gm.CurrentRunSeed, index);
                 var w = new WireWriter(96);
                 w.U8(MsgLoadLevel); w.I32(gm.CurrentRunSeed); w.I32(index); w.Str(CustomTag + custom); w.U8(0);
                 Replication.WorldSync.Instance?.OnFloorUnloading();
@@ -452,7 +457,7 @@ namespace GungeonOnline.Game
                 string custom = injected.Substring(CustomTag.Length);
                 if (gm.CurrentRunSeed != seed) gm.CurrentRunSeed = seed;
                 CurrentIndex = index;
-                ReseedForFloor(seed, index + 1000);
+                ReseedForFloor(seed, index);
                 GM.Field("m_loadingLevel").SetValue(false);
                 Plugin.Log.LogInfo($"RunSync: host says load secret floor {custom}");
                 clientAllowed = true;

@@ -56,6 +56,11 @@ namespace GungeonOnline.Session
             CoopStyle = c.Bind("Gameplay", "CoopStyle", 0, new ConfigDescription("Host only. 0 Classic: start a fight and your partner is pulled in, like local co-op. 1 Explore: one fight at a time, nobody pulled.", new AcceptableValueRange<int>(0, 1)));
             var mp = System.Environment.GetEnvironmentVariable("GO_MAX_PLAYERS"); // harness: players in the test
             if (mp != null && int.TryParse(mp, out var mpi)) MaxPlayers.Value = mpi;
+            // Harness: GO_SHARED_MONEY=0|1, GO_DOOR_GRACE=seconds.
+            var sm = System.Environment.GetEnvironmentVariable("GO_SHARED_MONEY");
+            if (sm == "0" || sm == "1") SharedMoney.Value = sm == "1";
+            var dg = System.Environment.GetEnvironmentVariable("GO_DOOR_GRACE");
+            if (!string.IsNullOrEmpty(dg) && float.TryParse(dg, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var dgs)) DoorGraceSeconds.Value = dgs;
             var cs = System.Environment.GetEnvironmentVariable("GO_COOP_STYLE"); // harness
             if (!string.IsNullOrEmpty(cs)) { int v; if (int.TryParse(cs, out v)) CoopStyle.Value = v; }
             NameColor = c.Bind("Interface", "NameColor", 0, new ConfigDescription("Name tag color for a friend who has not picked one: 0 gold, 1 white, 2 sky, 3 rose, 4 mint, 5 orange, 6 violet, 7 red.", new AcceptableValueRange<int>(0, 7)));
