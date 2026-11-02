@@ -504,12 +504,19 @@ namespace GungeonOnline.Replication
         {
             Exploder.DoDistortionWave(center, intensity, thickness, maxRadius, duration);
             float timer = duration, prev = 0f;
+            bool skipLogged = false;
             while (timer > 0f)
             {
                 yield return null;
                 timer -= BraveTime.DeltaTime;
                 float wave = BraveMathCollege.LinearToSmoothStepInterpolate(0f, maxRadius, 1f - timer / duration);
                 var p = PlayerSlots.Local;
+                if (Dev.DevEnv.IsHarness && p && !skipLogged)
+                {
+                    float d0 = Vector2.Distance(p.CenterPosition, center);
+                    if (d0 >= prev - 0.25f && d0 <= wave + 0.25f && (p.healthHaver.IsDead || p.spriteAnimator.QueryInvulnerabilityFrame() || !p.healthHaver.IsVulnerable))
+                    { skipLogged = true; Plugin.Log.LogInfo($"LOOKSYNC stone wave passed me while safe dead={p.healthHaver.IsDead} iframe={p.spriteAnimator.QueryInvulnerabilityFrame()} vuln={p.healthHaver.IsVulnerable} roll={p.IsDodgeRolling}"); }
+                }
                 if (p && !p.healthHaver.IsDead && !p.spriteAnimator.QueryInvulnerabilityFrame() && p.healthHaver.IsVulnerable)
                 {
                     Vector2 at = p.specRigidbody.GetUnitCenter(ColliderType.HitBox);
