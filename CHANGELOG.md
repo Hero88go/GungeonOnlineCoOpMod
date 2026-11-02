@@ -6,8 +6,8 @@
 - Each player's pause menu is their own. Before, the host's pause and menu buttons also opened and moved the friend's menu.
 - A friend's map stays on their screen; yours shows a small live map of what they are looking at, with everyone on it.
 - A friend's gun points exactly where they aim. Before, the host's game worked their aim out again with its own aim assist settings, so their gun (and shots) could swing toward enemies they were not aiming at.
-- Up to 8 players (host setting). Players 5 to 8 get their hearts beside the others along the top of the screen.
-- Faces beside the hearts are no longer cut off when someone has two rows of hearts.
+- Up to 8 players (host setting, experimental). Players 5 to 8 get a second row of hearts under players 3 and 4.
+- Faces beside the hearts are no longer cut off (on the right half of the screen they now sit on the inner side of the hearts).
 - When a fight starts, its doors stay open while a teammate is still outside, so they can walk in instead of being pulled across the floor (Gameplay setting, 0 to 30 seconds, 6 by default). A pull now fades in and says whose fight you joined.
 - "I'm stuck" in the online menu moves you to clear floor nearby.
 - Runs are saved every minute and at every floor; after a crash or a drop the host picks which recent run to resume. Runs can also be kept in three save slots (online menu).
