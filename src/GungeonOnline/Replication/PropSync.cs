@@ -438,8 +438,19 @@ namespace GungeonOnline.Replication
             {
                 var p = new Vector2(r.F32(), r.F32());
                 int f = r.U8();
-                if (i >= list.Count || !list[i] || (f & 1) == 0) continue;
+                if (i >= list.Count || !list[i]) continue;
                 var k = list[i];
+                if ((f & 1) == 0)
+                {
+                    // Gone on the host (shot to pieces): break ours too if it is still standing here.
+                    var mb = k.GetComponent<MinorBreakable>();
+                    if (mb && !mb.IsBroken && k.specRigidbody && k.specRigidbody.enabled)
+                    {
+                        scope = true;
+                        try { mb.Break(); Breaks++; } catch { } finally { scope = false; }
+                    }
+                    continue;
+                }
                 if (!k.specRigidbody || !k.specRigidbody.enabled) continue;
                 bool hostRolling = (f & 2) != 0;
                 bool mineRolling = k.specRigidbody.Velocity.sqrMagnitude > 0.0001f;
