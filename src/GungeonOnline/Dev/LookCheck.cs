@@ -54,7 +54,7 @@ namespace GungeonOnline.Dev
             // Both: report every kicked barrel and flipped table there is (the test compares host and guest).
             var sb = new System.Text.StringBuilder($"PROPTEST wall={System.DateTime.Now:HH:mm:ss.f}");
             foreach (var k in Game.SceneObjects.All<KickableObject>())
-                if (k && k.specRigidbody && (k.specRigidbody.Velocity.sqrMagnitude > 0.01f || Vector2.Distance(k.transform.position, barrelStart) < 40f))
+                if (k && k.specRigidbody && k.specRigidbody.enabled)
                     sb.Append($" barrel@{(Vector2)k.transform.position:F1}");
             foreach (var f in Game.SceneObjects.All<FlippableCover>()) if (f && f.IsFlipped) sb.Append($" table@{(Vector2)f.transform.position:F1}:flipped");
             Plugin.Log.LogInfo(sb.ToString());
