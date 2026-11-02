@@ -45,7 +45,10 @@ namespace GungeonOnline.Game.NPlayers
                     }
                 if (RunSync.CloneInProgress) return false;
             }
-            if (!Players.NPlus || !Players.AnyOtherAlive(__instance)) return true;
+            // Online with any number of players: a teammate still standing means a knock-out, decided from the mod's own
+            // player list. The game asks "the other player", which after a friend crashed and rejoined could be
+            // missing, and their next death then ended the whole run on their screen alone.
+            if (!Session.NetSession.Active || !Players.AnyOtherAlive(__instance)) return true;
             // What the game's own Die does before its two-player decision.
             __instance.DeathsThisRun++;
             if (GameUIRoot.Instance)

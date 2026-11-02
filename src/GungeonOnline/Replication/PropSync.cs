@@ -122,7 +122,10 @@ namespace GungeonOnline.Replication
             if (!IsClient || scope) return true;
             var me = PlayerSlots.Local;
             if (!me || !kickerRigidbody || kickerRigidbody != me.specRigidbody || !Instance) return false;
-            Instance.SendAt(EvKickReq, __state, NetSession.LocalSlot);
+            // Straight to the host (SendAt only reaches players the host has marked ready, which a guest never has).
+            var w = Instance.w;
+            w.Reset(); w.U8(EvKickReq); w.F32(__state.x); w.F32(__state.y); w.I32(NetSession.LocalSlot);
+            NetSession.Instance.Node.Broadcast((byte)Channel.Event, w.ToArray(), Delivery.ReliableOrdered);
             return true;
         }
 
