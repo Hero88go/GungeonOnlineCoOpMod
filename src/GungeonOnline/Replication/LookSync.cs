@@ -509,7 +509,8 @@ namespace GungeonOnline.Replication
             {
                 yield return null;
                 timer -= BraveTime.DeltaTime;
-                float wave = BraveMathCollege.LinearToSmoothStepInterpolate(0f, maxRadius, 1f - timer / duration);
+                // Clamped: after a hitch longer than the whole wave the curve ran past its end and came out negative.
+                float wave = BraveMathCollege.LinearToSmoothStepInterpolate(0f, maxRadius, Mathf.Clamp01(1f - timer / duration));
                 var p = PlayerSlots.Local;
                 if (Dev.DevEnv.IsHarness && p && !skipLogged)
                 {
