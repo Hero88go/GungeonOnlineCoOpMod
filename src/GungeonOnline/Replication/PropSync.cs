@@ -148,6 +148,16 @@ namespace GungeonOnline.Replication
         }
 
         readonly Dictionary<int, float> kickedAt = new Dictionary<int, float>();
+        const int StoppedFlag = 1 << 24;
+        const int FollowOnly = 14; // EvKick "slot": no kick here, just follow the host's barrel
+
+        /// <summary>Host: the guest's barrel must end up where ours is, kicked or not (the guest already rolled its own).</summary>
+        void FollowAnyway(KickableObject k)
+        {
+            int id = nextKick++;
+            rolling[id] = k;
+            SendAt(EvKick, k.transform.position, id * 16 + FollowOnly);
+        }
 
         void HostRequest(byte type, Vector2 p, int extra)
         {
@@ -155,11 +165,18 @@ namespace GungeonOnline.Replication
             {
                 var k = Nearest(SceneObjects.All<KickableObject>(), p, x => x && x.specRigidbody && x.specRigidbody.enabled);
                 var who = PlayerSlots.ForSlot(extra);
-                if (!k || !who || !who.specRigidbody) return;
-                // Already rolling, or kicked a moment ago by this player's copy here: once is enough.
-                if (k.specRigidbody.Velocity.sqrMagnitude > 0.01f) return;
-                if (kickedAt.TryGetValue(k.GetInstanceID(), out var t0) && Time.realtimeSinceStartup - t0 < 0.6f) return;
+                if (!k) return;
+                // Already rolling, or kicked a moment ago by this player's copy here: once is enough (but the guest
+                // still follows our barrel to wherever it stops).
+                bool recent = kickedAt.TryGetValue(k.GetInstanceID(), out var t0) && Time.realtimeSinceStartup - t0 < 0.6f;
+                if (!who || !who.specRigidbody || k.specRigidbody.Velocity.sqrMagnitude > 0.01f || recent)
+                {
+                    if (Dev.DevEnv.IsHarness) Plugin.Log.LogInfo($"PROPSYNC kick request from slot {extra} not kicked (rolling or just kicked)");
+                    if (!recent) FollowAnyway(k);
+                    return;
+                }
                 AccessTools.Method(typeof(KickableObject), "Kick").Invoke(k, new object[] { who.specRigidbody });
+                if (Dev.DevEnv.IsHarness) Plugin.Log.LogInfo($"PROPSYNC kicked for slot {extra} at {p}");
             }
             else if (type == EvFlipReq)
             {
@@ -188,8 +205,10 @@ namespace GungeonOnline.Replication
             {
                 var k = kv.Value;
                 if (!k) { (done ??= new List<int>()).Add(kv.Key); continue; }
-                SendAt(EvKickPos, k.transform.position, kv.Key);
-                if (!k.specRigidbody || k.specRigidbody.Velocity.sqrMagnitude < 0.0001f) (done ??= new List<int>()).Add(kv.Key);
+                bool stopped = !k.specRigidbody || k.specRigidbody.Velocity.sqrMagnitude < 0.0001f;
+                // The last word says "stopped": the guest's own roll must end exactly here, not run on.
+                SendAt(EvKickPos, k.transform.position, kv.Key | (stopped ? StoppedFlag : 0));
+                if (stopped) (done ??= new List<int>()).Add(kv.Key);
             }
             if (done != null) foreach (var id in done) rolling.Remove(id);
         }
@@ -423,7 +442,7 @@ namespace GungeonOnline.Replication
                             if (!k) break;
                             int id = extra / 16, slot = extra % 16;
                             guestKicked[id] = k;
-                            var who = slot < 15 ? PlayerSlots.ForSlot(slot) : null;
+                            var who = slot < FollowOnly ? PlayerSlots.ForSlot(slot) : null;
                             var m = AccessTools.Method(typeof(KickableObject), "Kick");
                             // Our own kick already started this roll here.
                             bool rolling = k.specRigidbody && k.specRigidbody.Velocity.sqrMagnitude > 0.01f;
@@ -432,9 +451,16 @@ namespace GungeonOnline.Replication
                         }
                     case EvKickPos:
                         {
-                            if (!guestKicked.TryGetValue(extra, out var k) || !k) break;
+                            bool stopped = (extra & StoppedFlag) != 0;
+                            if (!guestKicked.TryGetValue(extra & ~StoppedFlag, out var k) || !k) break;
                             k.transform.position = new Vector3(p.x, p.y, k.transform.position.z);
-                            if (k.specRigidbody) k.specRigidbody.Reinitialize();
+                            if (k.specRigidbody)
+                            {
+                                // Our own roll ends here too (the game's own stop: no more rolling, bouncing or goop trail).
+                                if (stopped && k.specRigidbody.Velocity.sqrMagnitude > 0f) AccessTools.Method(typeof(KickableObject), "StopRolling").Invoke(k, new object[] { false });
+                                k.specRigidbody.Reinitialize();
+                            }
+                            if (stopped) guestKicked.Remove(extra & ~StoppedFlag);
                             break;
                         }
                     case EvFlip:

@@ -38,8 +38,9 @@ Gungeon's co-op has always been couch co-op: one shared camera, and player two i
 **Runs can't be lost.**
 - Short Wi-Fi hiccup: play just carries on.
 - Someone drops for longer or their game crashes: the run pauses and waits for them, with no time limit. They reconnect and get their character, guns, items, health and spot back.
-- The host crashes: the run is backed up every floor and every two minutes. The host restarts, picks *Resume saved run*, and you're back in.
-- Need to stop? The host picks *Save run and quit*. Come back tomorrow or two weeks later, pick *Resume saved run*, and your friend rejoins with their own character and items.
+- The host crashes, or everyone drops: the run is saved every floor and every minute. The host restarts, picks *Resume saved run*, chooses the run, and you're back in.
+- Need to stop? The host picks *Save run and quit*, or keeps the run in one of three save slots with *Save run to a slot*. Come back tomorrow or two weeks later, pick *Resume saved run*, and your friend rejoins with their own character and items.
+- Stuck in a wall or frozen in place? Pick *I'm stuck* in the online menu.
 - Quick restart is turned off online, so nobody can throw the run away by accident.
 
 **Two ways to join.**
@@ -120,11 +121,11 @@ Start the game and press pause: you should see **PLAY ONLINE** in the pause menu
 
 If the host's router or firewall blocks the join, the mod opens a path by itself within a few seconds. If it still doesn't go through, your friend's *reply code* is copied for them: they send it to you and you pick *Let in friend* while they're still trying. If both routers are strict, use a VPN such as Tailscale or Radmin VPN and join with `ip:port`.
 
-## Playing with 3 or 4 (experimental)
+## Playing with 3 to 8 (experimental)
 
-Host as usual and set **Players** to 3 or 4 on the Hosting screen (it's next to the co-op style). Send the same invite code to everyone, or invite them from Steam. Each player picks any character in their own Breach.
+Host as usual and set **Players** (3 to 8) on the Hosting screen (it's next to the co-op style). Send the same invite code to everyone, or invite them from Steam. Each player picks any character in their own Breach.
 
-- Everyone has their own camera, controller and HUD. Players 3 and 4 get HUD panels beside the first two. 3 and 4 player support is experimental: please report anything odd.
+- Everyone has their own camera, controller and HUD. Players 3 and 4 get their hearts beside the first two; players 5 to 8 get a second row under them. More than 2 players is experimental: please report anything odd.
 - Going down is a knock-out while anyone is still up: the run ends only when everyone is down. Any revive chest or boss pedestal brings everyone back.
 - Classic style pulls everyone into the fight; Explore is one fight at a time.
 - Enemies get 1.25x health with 2 players (the game's own number), 1.5x with 3 and 1.75x with 4. Change it in the config if you want it easier or harder.
@@ -179,7 +180,7 @@ No. Rollback means rewinding and replaying the whole game every time a late inpu
 Your own character is never delayed. Your friend's character, the enemies and the bullets show up about half your ping behind. The mod's own work costs about 0.2 ms per frame on the host.
 
 **Can more than 2 people play?**
-Yes, up to 4 (experimental). The host sets **Players** to 3 or 4 on the Hosting screen. See *Playing with 3 or 4* above.
+Yes, up to 8 (experimental). The host sets **Players** on the Hosting screen. See *Playing with 3 to 8* above.
 
 **Does it work on Steam Deck / Linux?**
 Through Proton, yes: the mod is for the Windows version of the game. In Steam, open the game's **Properties**. Under **Compatibility**, tick *Force the use of a specific Steam Play compatibility tool* and pick a Proton version. Under **General**, set **Launch options** to:
@@ -228,7 +229,9 @@ All settings are in the online menu (*Settings*) and in `BepInEx/config/gungeono
 | Teammate HUD | Auto | Teammates' HUD: everything (2 players), hearts only (3 or 4), or pick everything, hearts only, or off. |
 | Locator text | Icon only | Text on the off-screen marker: icon only, name, or name and distance. |
 | Reload text | Everyone | The game's Reload text over players: everyone, only mine, or off. |
-| Players | 2 | Host only. Players per session: 2, 3 or 4 (3 and 4 are experimental). |
+| Players | 2 | Host only. Players per session: 2 to 8 (more than 2 is experimental). |
+| Doors wait for teammates | 6 s | Host only. When a fight starts, its doors stay open this long (0 to 30 seconds) while a teammate is still outside. |
+| Shared shells and keys | On | Host only. Off: each player has their own wallet. |
 | Connection warning | Top | Shows only when the connection is not great: top, top faint, corner, corner faint, or off. |
 | Friend's crosshair | Off | The game's crosshair where your friend is aiming, in their name color. |
 | Overlay size | Normal | Size of the connection warning, locator and name tags: small, normal or large. |

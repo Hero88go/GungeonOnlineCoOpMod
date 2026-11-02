@@ -175,6 +175,8 @@ namespace GungeonOnline.Replication
             if (NetSession.IsHost) slot = from.Slot; // a client only speaks for its own player
             var p = PlayerSlots.ForSlot(slot);
             if (!p || !PlayerSlots.IsRemote(p) || p.IsFalling || p.IsGhost) return;
+            // A copy made a moment ago (a friend coming back during a floor change) has no physics body yet.
+            if (GameManager.Instance.IsLoadingLevel || !p.specRigidbody || p.specRigidbody.PrimaryPixelCollider == null) return;
             fallScope = true;
             try { p.WarpToPoint(at); p.ForceFall(); }
             finally { fallScope = false; }
