@@ -14,7 +14,11 @@ namespace GungeonOnline.Game
     /// </summary>
     internal sealed class RunSync : MonoBehaviour
     {
-        const byte MsgLoadLevel = 1, MsgRejoin = 2, MsgLayout = 3, MsgClone = 4, MsgMods = 5;
+        const byte MsgLoadLevel = 1, MsgRejoin = 2, MsgLayout = 3, MsgClone = 4, MsgMods = 5, MsgCustomRequest = 7;
+        /// <summary>Secret floors (the Oubliette, the Abbey, ...) load by name, not by floor number: sent as "custom:NAME".</summary>
+        const string CustomTag = "custom:";
+        /// <summary>Host: the secret floor we are on, or null on a regular floor.</summary>
+        static string currentCustom;
         /// <summary>Index of the floor currently loaded (both machines).</summary>
         public static int CurrentIndex = -1;
         public static RunSync Instance { get; private set; }
@@ -43,6 +47,9 @@ namespace GungeonOnline.Game
                 h.Patch(AccessTools.Method(typeof(GameManager), name), prefix: new HarmonyMethod(typeof(RunSync), nameof(GuestResetAllowed)));
             foreach (var name in new[] { "DoMainMenu", "DoQuickRestart" })
                 h.Patch(AccessTools.Method(typeof(AmmonomiconDeathPageController), name), prefix: new HarmonyMethod(typeof(RunSync), nameof(GuestResetAllowed)));
+            // Secret floors: the host takes everyone; a guest who finds the way in asks the host to go.
+            h.Patch(AccessTools.Method(typeof(GameManager), nameof(GameManager.LoadCustomLevel)), prefix: new HarmonyMethod(typeof(RunSync), nameof(LoadCustomPrefix)));
+            h.Patch(AccessTools.Method(typeof(GameManager), nameof(GameManager.DelayedLoadCustomLevel)), prefix: new HarmonyMethod(typeof(RunSync), nameof(DelayedCustomPrefix)));
             h.Patch(AccessTools.Method(typeof(PlayerController), "DoCloneEffect"),
                 prefix: new HarmonyMethod(typeof(RunSync), nameof(ClonePrefix)));
             h.Patch(AccessTools.Method(typeof(PlayerController), nameof(PlayerController.HandleCloneItem)),
@@ -137,6 +144,55 @@ namespace GungeonOnline.Game
             return clientAllowed;
         }
 
+        static bool applyingCustom;
+
+        /// <summary>Host: a secret floor loads by name; tell everyone to load the same one.
+        /// Guest: only the host's word loads one (asking the host if this guest found the way in).</summary>
+        static bool LoadCustomPrefix(string custom)
+        {
+            if (!NetSession.Active) return true;
+            var gm = GameManager.Instance;
+            if (NetSession.IsHost)
+            {
+                if (custom == "tt_foyer" || custom == "MainMenu" || custom == "Foyer" || custom == "tt_tutorial" || SceneObjects.InBreach) return true;
+                currentCustom = custom;
+                int index = GM.Field("nextLevelIndex").GetValue<int>();
+                CurrentIndex = index;
+                ReseedForFloor(gm.CurrentRunSeed, index + 1000);
+                var w = new WireWriter(96);
+                w.U8(MsgLoadLevel); w.I32(gm.CurrentRunSeed); w.I32(index); w.Str(CustomTag + custom); w.U8(0);
+                Replication.WorldSync.Instance?.OnFloorUnloading();
+                GenContext.CaptureAndSend(gm.CurrentRunSeed, index);
+                NetSession.Instance.Node.Broadcast((byte)Channel.Control, w.ToArray(), Delivery.ReliableOrdered);
+                NetSession.Instance.FlushNow();
+                Plugin.Log.LogInfo($"RunSync: host loading secret floor {custom}");
+                return true;
+            }
+            if (clientAllowed) { clientAllowed = false; return true; }
+            AskHostFor(custom);
+            GM.Field("m_loadingLevel").SetValue(false);
+            return false;
+        }
+
+        static bool DelayedCustomPrefix(string customLevel)
+        {
+            if (!NetSession.Active || NetSession.IsHost || clientAllowed) return true;
+            AskHostFor(customLevel);
+            return false;
+        }
+
+        static float lastAsk;
+
+        static void AskHostFor(string custom)
+        {
+            if (Time.realtimeSinceStartup - lastAsk < 2f) return;
+            lastAsk = Time.realtimeSinceStartup;
+            Plugin.Log.LogInfo("RunSync: found the way to secret floor " + custom + ", asking the host");
+            var w = new WireWriter(64);
+            w.U8(MsgCustomRequest); w.Str(custom);
+            NetSession.Instance.Node.Broadcast((byte)Channel.Control, w.ToArray(), Delivery.ReliableOrdered);
+        }
+
         static bool LoadNextLevelPrefix()
         {
             if (!NetSession.Active) return true;
@@ -172,6 +228,7 @@ namespace GungeonOnline.Game
                     Plugin.Log.LogInfo("RunSync: run seed " + seed);
                 }
                 int index = GM.Field("nextLevelIndex").GetValue<int>();
+                currentCustom = null;
                 ReseedForFloor(gm.CurrentRunSeed, index);
                 CurrentIndex = index;
                 var w = new WireWriter(64);
@@ -229,7 +286,7 @@ namespace GungeonOnline.Game
             w.U8(MsgRejoin);
             w.I32(gm.CurrentRunSeed);
             w.I32(CurrentIndex);
-            w.Str(gm.InjectedLevelName ?? "");
+            w.Str(currentCustom != null ? CustomTag + currentCustom : gm.InjectedLevelName ?? "");
             var lobby = FindObjectOfType<Lobby>();
             w.Str(lobby != null && lobby.Roster.TryGetValue(c.Slot, out var e) ? e.Prefab : "");
             GenContext.SendTo(c);
@@ -242,6 +299,17 @@ namespace GungeonOnline.Game
             var r = new WireReader(data, 0, data.Length);
             byte type = r.U8();
             if (type == MsgMods) { CompareMods(c, r.Str()); return; }
+            if (type == MsgCustomRequest)
+            {
+                string want = r.Str();
+                if (NetSession.IsHost && !GameManager.Instance.IsLoadingLevel && !SceneObjects.InBreach)
+                {
+                    Plugin.Log.LogInfo($"RunSync: {GungeonUI.WhoName(c)} found the way to {want}, taking everyone");
+                    Toasts.Show(GungeonUI.WhoName(c) + " found a secret floor", 4f);
+                    GameManager.Instance.DelayedLoadCustomLevel(0.5f, want);
+                }
+                return;
+            }
             if (NetSession.IsHost) return;
             if (type == GenContext.Msg) { GenContext.Receive(ref r); return; }
             if (type == MsgLoadLevel || type == MsgRejoin) Session.Lobby.HostInBreach = 0; // the host is in a run now
@@ -379,6 +447,20 @@ namespace GungeonOnline.Game
         void LoadFloor(int seed, int index, string injected)
         {
             var gm = GameManager.Instance;
+            if (injected != null && injected.StartsWith(CustomTag))
+            {
+                string custom = injected.Substring(CustomTag.Length);
+                if (gm.CurrentRunSeed != seed) gm.CurrentRunSeed = seed;
+                CurrentIndex = index;
+                ReseedForFloor(seed, index + 1000);
+                GM.Field("m_loadingLevel").SetValue(false);
+                Plugin.Log.LogInfo($"RunSync: host says load secret floor {custom}");
+                clientAllowed = true;
+                Replication.WorldSync.Instance?.OnFloorUnloading();
+                if (Pixelator.Instance) Pixelator.Instance.FadeToBlack(0.2f);
+                gm.LoadCustomLevel(custom);
+                return;
+            }
             if (gm.CurrentRunSeed != seed) gm.CurrentRunSeed = seed;
             ReseedForFloor(seed, index);
             CurrentIndex = index;
@@ -542,7 +624,7 @@ namespace GungeonOnline.Game
             Plugin.Log.LogWarning($"FLOOR MISMATCH: host {hostLayout}, mine {mine}; other mods: {(others.Length > 0 ? others : "none")}");
             string message = others.Length > 0
                 ? "This floor is different from the host's, so rooms and enemies won't match. Other mods can change floors: " + others + ". Everyone needs the same mods, or play without them."
-                : "This floor is different from the host's, so rooms and enemies won't match. Does the host have other mods installed? Everyone needs the same mods.";
+                : "This floor is different from the host's, so rooms and enemies won't match. Rejoin the host to get back in sync.";
             // Continuing puts the guest in walls and lets them take damage from enemies they cannot see.
             // Stop the incompatible run and return safely rather than trying to replicate onto another layout.
             NetSession.Instance.Leave("incompatible floor layout");

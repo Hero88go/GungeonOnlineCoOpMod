@@ -255,7 +255,9 @@ namespace GungeonOnline.Replication
             var me = PlayerSlots.Local;
             if (!me || me.specRigidbody == null || GameManager.Instance.IsLoadingLevel || me.IsFalling) return;
             hasPendingMove = false;
+            bool far = Vector2.Distance(me.CenterPosition, pendingMove) > 8f;
             me.WarpToPoint(pendingMove);
+            if (far) Camera.IndependentCamera.SoftenJump(null);
             InputSync.Instance.MoveEpoch = pendingEpoch; // frames from now on show the move
             MovesApplied++;
             Plugin.Log.LogInfo($"MOVED by the host to {pendingMove.x:F2},{pendingMove.y:F2} (epoch {pendingEpoch})");

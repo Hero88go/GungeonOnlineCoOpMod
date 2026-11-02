@@ -17,7 +17,7 @@ namespace GungeonOnline.Replication
     internal sealed class PropSync : MonoBehaviour
     {
         public static PropSync Instance { get; private set; }
-        const byte EvMinor = 80, EvMajor = 81, EvFlip = 82, EvCarts = 83, EvElevator = 84, EvMyCart = 85;
+        const byte EvMinor = 80, EvMajor = 81, EvFlip = 82, EvCarts = 83, EvElevator = 84, EvMyCart = 85, EvKick = 86, EvKickPos = 87;
 
         static bool scope;
         static bool IsClient => NetSession.Active && !NetSession.IsHost;
@@ -34,6 +34,9 @@ namespace GungeonOnline.Replication
             foreach (var m in typeof(MinorBreakable).GetMethods())
                 if (m.Name == nameof(MinorBreakable.Break) && m.DeclaringType == typeof(MinorBreakable))
                     h.Patch(m, prefix: new HarmonyMethod(t, nameof(ClientBlock)), postfix: new HarmonyMethod(t, nameof(MinorPost)));
+            // Kicked barrels roll with each game's own physics and ended up in different places: the host's roll is
+            // the real one; guests start the same roll and follow the host's position until it stops.
+            h.Patch(AccessTools.Method(typeof(KickableObject), "Kick"), prefix: new HarmonyMethod(t, nameof(KickPrefix)), postfix: new HarmonyMethod(t, nameof(KickPost)));
             h.Patch(AccessTools.Method(typeof(MajorBreakable), nameof(MajorBreakable.Break)), prefix: new HarmonyMethod(t, nameof(ClientBlock)), postfix: new HarmonyMethod(t, nameof(MajorPost)));
             h.Patch(AccessTools.Method(typeof(FlippableCover), nameof(FlippableCover.Flip), new[] { typeof(DungeonData.Direction) }),
                 prefix: new HarmonyMethod(t, nameof(ClientBlock)), postfix: new HarmonyMethod(t, nameof(FlipPost)));
@@ -82,6 +85,42 @@ namespace GungeonOnline.Replication
         {
             w.Reset(); w.U8(type); w.F32(p.x); w.F32(p.y); w.I32(extra);
             Send(w.ToArray());
+        }
+
+        readonly Dictionary<int, KickableObject> rolling = new Dictionary<int, KickableObject>(); // host: kick id
+        readonly Dictionary<int, KickableObject> guestKicked = new Dictionary<int, KickableObject>();
+        int nextKick = 1;
+        float nextKickSend;
+
+        static bool KickPrefix(KickableObject __instance, out Vector2 __state)
+        {
+            __state = __instance ? (Vector2)__instance.transform.position : Vector2.zero;
+            return ClientBlock();
+        }
+
+        static void KickPost(KickableObject __instance, SpeculativeRigidbody kickerRigidbody, Vector2 __state)
+        {
+            if (!IsHostSession || scope || !Instance || !__instance) return;
+            int id = Instance.nextKick++;
+            Instance.rolling[id] = __instance;
+            var kicker = kickerRigidbody ? kickerRigidbody.GetComponent<PlayerController>() : null;
+            int slot = kicker ? PlayerSlots.SlotOf(kicker) : -1;
+            Instance.SendAt(EvKick, __state, id * 16 + (slot < 0 ? 15 : slot));
+        }
+
+        void SendRolling()
+        {
+            if (rolling.Count == 0 || Time.realtimeSinceStartup < nextKickSend) return;
+            nextKickSend = Time.realtimeSinceStartup + 0.1f;
+            List<int> done = null;
+            foreach (var kv in rolling)
+            {
+                var k = kv.Value;
+                if (!k) { (done ??= new List<int>()).Add(kv.Key); continue; }
+                SendAt(EvKickPos, k.transform.position, kv.Key);
+                if (!k.specRigidbody || k.specRigidbody.Velocity.sqrMagnitude < 0.0001f) (done ??= new List<int>()).Add(kv.Key);
+            }
+            if (done != null) foreach (var id in done) rolling.Remove(id);
         }
 
         static void MinorPost(MinorBreakable __instance)
@@ -163,6 +202,7 @@ namespace GungeonOnline.Replication
         void LateUpdate()
         {
             SendMyCart();
+            if (IsHostSession) SendRolling();
             if (!IsHostSession || !SceneObjects.OnDungeonFloor || Time.realtimeSinceStartup < nextCarts) return;
             nextCarts = Time.realtimeSinceStartup + 1f / 30f;
             var list = Carts();
@@ -230,6 +270,24 @@ namespace GungeonOnline.Replication
                             var e = Nearest(SceneObjects.All<ElevatorDepartureController>(), p, x => true);
                             if (e) { if (extra == 1) e.DoCryoDeparture(false); else e.DoDeparture(); Elevators++; }
                             else Plugin.Log.LogWarning("PropSync: no elevator at " + p);
+                            break;
+                        }
+                    case EvKick:
+                        {
+                            var k = Nearest(SceneObjects.All<KickableObject>(), p, x => true);
+                            if (!k) break;
+                            int id = extra / 16, slot = extra % 16;
+                            guestKicked[id] = k;
+                            var who = slot < 15 ? PlayerSlots.ForSlot(slot) : null;
+                            var m = AccessTools.Method(typeof(KickableObject), "Kick");
+                            if (who && who.specRigidbody) m.Invoke(k, new object[] { who.specRigidbody });
+                            break;
+                        }
+                    case EvKickPos:
+                        {
+                            if (!guestKicked.TryGetValue(extra, out var k) || !k) break;
+                            k.transform.position = new Vector3(p.x, p.y, k.transform.position.z);
+                            if (k.specRigidbody) k.specRigidbody.Reinitialize();
                             break;
                         }
                     case EvFlip:

@@ -49,9 +49,9 @@ namespace GungeonOnline.Session
                 return;
             }
             list.RemoveAll(t => t.Until < now);
-            // The online menu shows the same status itself; messages drawn over it only cover its title and code.
-            if (OnlineMenu.IsOpen) return;
-            DrawGame(now);
+            // With the online menu open, messages go along the bottom of the screen, clear of its title and code
+            // (hiding them there left "Send report" with no answer at all).
+            DrawGame(now, OnlineMenu.IsOpen);
             return;
             var style = MenuStyle.Toast;
             float y = Screen.height * 0.08f;
@@ -69,10 +69,21 @@ namespace GungeonOnline.Session
         }
 
         /// <summary>Toasts in the item-pickup box, sliding in from above; the banner uses the gold box.</summary>
-        void DrawGame(float now)
+        void DrawGame(float now, bool atBottom = false)
         {
             int px = GungeonUI.Px;
             float y = 30 * px;
+            if (atBottom)
+            {
+                y = Screen.height - 34 * px * list.Count - 10 * px;
+                foreach (var t in list)
+                {
+                    float a = Mathf.Min(1f, GungeonUI.Ease((t.Until - now) / 0.4f));
+                    DrawStyled(t.Text, y, a, false, t.Warn);
+                    y += 29 * px;
+                }
+                return;
+            }
             if (!string.IsNullOrEmpty(Banner))
             {
                 DrawStyled(Banner, y, 1f, true, false);

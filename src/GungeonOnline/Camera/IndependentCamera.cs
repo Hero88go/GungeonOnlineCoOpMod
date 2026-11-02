@@ -153,6 +153,19 @@ namespace GungeonOnline.Camera
             Pulls++;
             Plugin.Log.LogInfo($"PULL {(Game.PlayerSlots.IsRemote(__instance) ? "guest" : "host")} into {(other != null && other.CurrentRoom != null ? other.CurrentRoom.GetRoomName() : "?")} ghost={__instance.IsGhost}");
             if (Dev.DevEnv.IsHarness) __instance.StartCoroutine(CheckLanding(__instance));
+            if (__instance == Game.PlayerSlots.Local) SoftenJump(other);
+        }
+
+        /// <summary>Your own player was just pulled across the floor (Classic: a friend started a fight). Instead of the
+        /// view cutting straight to somewhere new, it comes in from black, and a line says where you are.</summary>
+        public static void SoftenJump(PlayerController towards)
+        {
+            if (Pixelator.Instance) Pixelator.Instance.FadeToBlack(0.35f, true);
+            string who = "your friend";
+            int slot = towards != null ? Game.PlayerSlots.SlotOf(towards) : -1;
+            if (slot >= 0 && Session.NetSession.Instance != null && Session.NetSession.Instance.Node != null)
+                foreach (var c in Session.NetSession.Instance.Node.Connections) if (c.Slot == slot) who = Session.GungeonUI.WhoName(c);
+            Session.Toasts.Show("Pulled into " + who + "'s fight", 3f);
         }
 
         /// <summary>Mark every remote player as ignored by this machine's camera.</summary>

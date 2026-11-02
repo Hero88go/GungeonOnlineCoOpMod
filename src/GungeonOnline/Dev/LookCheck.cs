@@ -13,7 +13,7 @@ namespace GungeonOnline.Dev
         static bool costumeDone, fireOn, fireOff;
         static float nextLog;
 
-        static bool reticleDone, stoneDone;
+        static bool reticleDone, stoneDone, customDone;
 
         /// <summary>GO_RETICLE_AT=seconds (host): a bullet kin drops into the host's room the way reinforcements do,
         /// with the warning reticle first.</summary>
@@ -99,6 +99,14 @@ namespace GungeonOnline.Dev
                 stoneDone = true;
                 Replication.LookSync.Instance.TestStone(Game.PlayerSlots.ForSlot(1).CenterPosition + new Vector2(0f, 5f));
                 Plugin.Log.LogInfo("STONETEST sent");
+            }
+            if (!customDone && float.TryParse(System.Environment.GetEnvironmentVariable("GO_CUSTOM_AT"), out var cat) && t >= cat
+                && Me(System.Environment.GetEnvironmentVariable("GO_CUSTOM_WHO") ?? "host") && !Game.SceneObjects.InBreach && !GameManager.Instance.IsLoadingLevel)
+            {
+                customDone = true;
+                string name = System.Environment.GetEnvironmentVariable("GO_CUSTOM_NAME") ?? "tt_sewer";
+                Plugin.Log.LogInfo("CUSTOMTEST going to " + name);
+                GameManager.Instance.LoadCustomLevel(name);
             }
             try { ReticleTest(t, me); } catch (System.Exception e) { Plugin.Log.LogInfo("RETICLETEST error " + e.Message); }
             try { GunTest(t, me); } catch (System.Exception e) { Plugin.Log.LogInfo("GUNTEST error " + e.Message); }

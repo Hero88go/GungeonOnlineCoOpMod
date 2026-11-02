@@ -33,9 +33,18 @@ namespace GungeonOnline.Input
         /// <summary>Gun switching buttons are not replayed: the owner says which gun its player holds (VitalsSync).</summary>
         static bool GunChoice(NetButton b) => b == NetButton.GunUp || b == NetButton.GunDown || b == NetButton.GunQuickEquip;
 
+        /// <summary>Menu buttons stay on their owner's screen: another player's Pause, Map or menu presses never open
+        /// or steer this machine's menus (their Pause paused everyone and their presses moved the friend's pause menu).</summary>
+        static bool MenuOnly(NetButton b) => b == NetButton.Pause || b == NetButton.Cancel || b == NetButton.MenuSelect ||
+            b == NetButton.EquipmentMenu || b == NetButton.Map || b == NetButton.MinimapZoomIn || b == NetButton.MinimapZoomOut ||
+            b == NetButton.SelectLeft || b == NetButton.SelectRight || b == NetButton.SelectUp;
+
         public override void Update(ulong updateTick, float deltaTime)
         {
             var f = Frame;
+            // This machine's own menu is open: its menus read every connected pad's stick, so the copies' movement
+            // stick is held still (where they are still comes from their owner).
+            if (Game.PauseScope.LocalMenuOpen) { f.MoveX = 0; f.MoveY = 0; }
             var m = f.Move;
             var a = f.Aim;
             UpdateWithValue(InputControlType.LeftStickLeft, m.x < 0 ? -m.x : 0f, updateTick, deltaTime);
@@ -46,9 +55,9 @@ namespace GungeonOnline.Input
             UpdateWithValue(InputControlType.RightStickRight, a.x > 0 ? a.x : 0f, updateTick, deltaTime);
             UpdateWithValue(InputControlType.RightStickUp, a.y > 0 ? a.y : 0f, updateTick, deltaTime);
             UpdateWithValue(InputControlType.RightStickDown, a.y < 0 ? -a.y : 0f, updateTick, deltaTime);
-            UpdateWithState(NetBindings.SelectDownControl, (f.Flags & NetFlags.SelectDown) != 0, updateTick, deltaTime);
+            UpdateWithState(NetBindings.SelectDownControl, false, updateTick, deltaTime);
             foreach (var kv in NetBindings.Map)
-                UpdateWithState(kv.Value.Value, !GunChoice(kv.Value.Key) && f.Has(kv.Value.Key), updateTick, deltaTime);
+                UpdateWithState(kv.Value.Value, !GunChoice(kv.Value.Key) && !MenuOnly(kv.Value.Key) && f.Has(kv.Value.Key), updateTick, deltaTime);
         }
     }
 }
