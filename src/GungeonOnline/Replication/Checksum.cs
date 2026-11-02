@@ -128,7 +128,13 @@ namespace GungeonOnline.Replication
 
         public void Apply(Connection c, byte type, ref WireReader r)
         {
-            if (type == EvResyncReq && NetSession.IsHost) { HostResync(c); return; }
+            if (type == EvResyncReq && NetSession.IsHost)
+            {
+                string why = r.Remaining > 0 ? r.Str() : "";
+                if (why.Length > 0) Log("slot " + c.Slot + " saw: " + why);
+                HostResync(c);
+                return;
+            }
             if (type == EvAliveSet && !NetSession.IsHost) { WorldSync.Instance?.KeepOnly(ReadIds(ref r)); return; }
             if (type != EvSummary || NetSession.IsHost || !SceneObjects.OnDungeonFloor) return;
 
@@ -215,6 +221,8 @@ namespace GungeonOnline.Replication
             if (Time.realtimeSinceStartup - lastResyncReq < 3f) return;
             lastResyncReq = Time.realtimeSinceStartup;
             w.Reset(); w.U8(EvResyncReq);
+            // Why: the host's log (and its reports) then say what did not match, not only the guest's.
+            w.Str(LastMismatch.Length > 300 ? LastMismatch.Substring(0, 300) : LastMismatch);
             NetSession.Instance.Node.Broadcast((byte)Channel.Event, w.ToArray(), Delivery.ReliableOrdered);
             Resyncs++;
         }

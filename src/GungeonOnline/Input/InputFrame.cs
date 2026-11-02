@@ -29,6 +29,8 @@ namespace GungeonOnline.Input
         SelectDown = 1 << 0,
         /// <summary>Aim comes from a mouse cursor: AimPoint is a world position, no controller aim assist.</summary>
         MouseAim = 1 << 1,
+        /// <summary>Aim is where the owner's gun really pointed after its own aim assist: copies point exactly there.</summary>
+        FinalAim = 1 << 2,
     }
 
     /// <summary>One frame of one player's input. 17 bytes on the wire.</summary>

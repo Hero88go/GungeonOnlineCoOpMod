@@ -4,12 +4,15 @@
 
 - Secret floors (the Oubliette, the Abbey and the others) take everyone. Before, the host went alone, the friend was told their mods did not match and could not rejoin. A friend who finds the way in first brings everyone along.
 - Each player's pause menu is their own. Before, the host's pause and menu buttons also opened and moved the friend's menu.
-- A friend's map stays on their screen; yours shows a line that they are looking at the map.
-- When a fight starts, its doors stay open for a few seconds while a teammate is still outside, so they can walk in instead of being pulled across the floor (Gameplay setting, 0 to 5 seconds). A pull now fades in and says whose fight you joined.
+- A friend's map stays on their screen; yours shows a small live map of what they are looking at, with everyone on it.
+- A friend's gun points exactly where they aim. Before, the host's game worked their aim out again with its own aim assist settings, so their gun (and shots) could swing toward enemies they were not aiming at.
+- Up to 8 players (host setting). Players 5 to 8 get their hearts beside the others along the top of the screen.
+- Faces beside the hearts are no longer cut off when someone has two rows of hearts.
+- When a fight starts, its doors stay open while a teammate is still outside, so they can walk in instead of being pulled across the floor (Gameplay setting, 0 to 30 seconds, 6 by default). A pull now fades in and says whose fight you joined.
 - "I'm stuck" in the online menu moves you to clear floor nearby.
-- Runs can be saved to three slots (host, online menu) and any of them, or the last autosave, resumed from the Breach.
+- Runs are saved every minute and at every floor; after a crash or a drop the host picks which recent run to resume. Runs can also be kept in three save slots (online menu).
 - New Gameplay setting: shared shells and keys (on by default, like local co-op) or a wallet for each player.
-- Kicked barrels and moving platforms are in the same place on every screen.
+- Kicked barrels, flipped tables and moving platforms are in the same place on every screen, and a friend's kicks and flips always count. Before, a friend's flip could leave an upright table that blocked like a flipped one.
 - Enemy bullets no longer hang in the air on a friend's screen after the host's bullet is gone.
 - "Send report" shows whether the report was sent while the online menu is open.
 - The message for a floor that differs from the host's no longer blames other mods when there are none.

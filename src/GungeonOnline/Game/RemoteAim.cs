@@ -1,5 +1,6 @@
 using GungeonOnline.Session;
 using HarmonyLib;
+using UnityEngine;
 
 namespace GungeonOnline.Game
 {
@@ -14,7 +15,41 @@ namespace GungeonOnline.Game
         {
             h.Patch(AccessTools.Method(typeof(PlayerController), "DetermineAimPointInWorld"),
                 prefix: new HarmonyMethod(typeof(RemoteAim), nameof(Prefix)),
+                postfix: new HarmonyMethod(typeof(RemoteAim), nameof(OwnAimPostfix)),
                 finalizer: new HarmonyMethod(typeof(RemoteAim), nameof(Finalizer)));
+        }
+
+        // ---------- The owner's final aim ----------
+
+        public static bool HasOwnAim;
+        public static Vector2 OwnAimDirection;
+        static readonly System.Collections.Generic.HashSet<int> forced = new System.Collections.Generic.HashSet<int>();
+
+        /// <summary>Your own player: remember where its gun points this frame (sent with your next input).</summary>
+        static void OwnAimPostfix(PlayerController __instance, Vector3 __result)
+        {
+            if (!NetSession.Active || __instance != PlayerSlots.Local || !__instance.gunAttachPoint) return;
+            Vector2 d = (Vector2)__result - (Vector2)__instance.gunAttachPoint.position;
+            if (d.sqrMagnitude < 0.0001f) return;
+            OwnAimDirection = d.normalized;
+            HasOwnAim = true;
+        }
+
+        /// <summary>Another machine's player: point exactly where its owner pointed (no aim assist worked out here).</summary>
+        public static void Follow(PlayerController p, Input.InputFrame f)
+        {
+            if (!p || !p.gunAttachPoint) return;
+            int id = p.GetInstanceID();
+            if ((f.Flags & Input.NetFlags.FinalAim) != 0)
+            {
+                var aim = f.Aim;
+                if (aim.sqrMagnitude > 0.0001f)
+                {
+                    p.forceAimPoint = (Vector2)p.gunAttachPoint.position + aim.normalized * 150f;
+                    forced.Add(id);
+                }
+            }
+            else if (forced.Remove(id)) p.forceAimPoint = null;
         }
 
         struct Saved { public bool Active; public float Assist; public bool Beam; public BraveInput.AutoAim Mode; }

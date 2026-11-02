@@ -163,6 +163,7 @@ namespace GungeonOnline.Replication
                 var dev = InputPump.Route(p.PlayerIDX);
                 var st = Get(kv.Key);
                 dev.Frame = Next(st);
+                Game.RemoteAim.Follow(p, dev.Frame);
                 PlayerSync.Instance?.Place(kv.Key, p, st); // exactly where its owner was when this input began
             }
         }
@@ -258,6 +259,14 @@ namespace GungeonOnline.Replication
                 Vector2 dir = (Vector2)local.unadjustedAimPoint - local.CenterPosition;
                 if (dir.sqrMagnitude > 0.0001f) f.Aim = dir.normalized;
                 f.Flags |= NetFlags.MouseAim;
+            }
+            // Where the gun really pointed last frame, after this player's own aim assist. Other games used to work
+            // the aim out again with their own assist settings (one that auto-aims for player 2 swung the friend's
+            // gun at enemies they were not aiming at, and their shots went there).
+            if (!Game.PauseScope.LocalMenuOpen && Game.RemoteAim.HasOwnAim)
+            {
+                Vector2 dir = Game.RemoteAim.OwnAimDirection;
+                if (dir.sqrMagnitude > 0.0001f) { f.Aim = dir.normalized; f.Flags |= NetFlags.FinalAim; }
             }
             LocalSeq++;
             localHistory[LocalSeq & 255] = f;

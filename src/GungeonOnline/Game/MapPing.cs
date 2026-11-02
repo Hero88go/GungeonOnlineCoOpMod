@@ -128,12 +128,17 @@ namespace GungeonOnline.Game
         // ---------------- "Looking at the map" ----------------
         // Another player's map stays on their screen; here a short line says they have it open.
         public const byte EvMapOpen = 49;
-        static readonly Dictionary<int, bool> othersMapOpen = new Dictionary<int, bool>();
+        // While a player's full map is open, its view (where it is centred and how far it is zoomed, in world units)
+        // goes to everyone five times a second; their screens show it as a small map in the top left corner, with
+        // every player on it, instead of the whole screen.
+        sealed class MapView { public bool Open; public Vector2 Center; public float HalfH; }
+        static readonly Dictionary<int, MapView> othersMap = new Dictionary<int, MapView>();
         bool mapWasOpen;
+        float nextView;
 
-        void SendMapOpen(int slot, bool open, Connection except)
+        void SendMapView(int slot, bool open, Vector2 center, float halfH, Connection except)
         {
-            w.Reset(); w.U8(EvMapOpen); w.U8((byte)slot); w.Bool(open);
+            w.Reset(); w.U8(EvMapOpen); w.U8((byte)slot); w.Bool(open); w.F32(center.x); w.F32(center.y); w.F32(halfH);
             var msg = w.ToArray();
             foreach (var c in NetSession.Instance.Node.Connections)
                 if (c != except) c.Send((byte)Channel.Event, msg, Delivery.ReliableOrdered);
@@ -143,34 +148,94 @@ namespace GungeonOnline.Game
         {
             int slot = r.U8();
             bool open = r.Bool();
+            var center = new Vector2(r.F32(), r.F32());
+            float halfH = r.F32();
             if (instance == null) return;
-            if (NetSession.IsHost) instance.SendMapOpen(slot, open, from);
-            if (slot != NetSession.LocalSlot) othersMapOpen[slot] = open;
+            if (NetSession.IsHost) instance.SendMapView(slot, open, center, halfH, from);
+            if (slot == NetSession.LocalSlot) return;
+            if (!othersMap.TryGetValue(slot, out var v)) othersMap[slot] = v = new MapView();
+            v.Open = open; v.Center = center; v.HalfH = halfH;
+        }
+
+        /// <summary>The world spot at the middle of this game's full map, and half its height in world units.</summary>
+        static bool OwnMapView(out Vector2 center, out float halfH)
+        {
+            center = default(Vector2); halfH = 0f;
+            var m = Minimap.Instance;
+            if (!m || !m.cameraRef) return false;
+            // The map draws the floor at one eighth scale from its own origin.
+            Vector3 d = m.cameraRef.transform.position - m.transform.position;
+            center = new Vector2(d.x * 8f, d.y * 8f);
+            halfH = m.cameraRef.orthographicSize * 8f;
+            return true;
         }
 
         void TrackOwnMap()
         {
-            if (!NetSession.Active) { othersMapOpen.Clear(); mapWasOpen = false; return; }
+            if (!NetSession.Active) { othersMap.Clear(); mapWasOpen = false; return; }
             bool open = MapOpen;
-            if (open == mapWasOpen) return;
+            float now = Time.realtimeSinceStartup;
+            if (open == mapWasOpen && (!open || now < nextView)) return;
             mapWasOpen = open;
-            SendMapOpen(NetSession.LocalSlot, open, null);
+            nextView = now + 0.2f;
+            Vector2 c = default(Vector2); float hh = 0f;
+            if (open) OwnMapView(out c, out hh);
+            SendMapView(NetSession.LocalSlot, open, c, hh, null);
         }
 
         void DrawMapNotes()
         {
-            if (othersMapOpen.Count == 0 || OnlineMenu.IsOpen || MapOpen) return;
+            if (othersMap.Count == 0 || OnlineMenu.IsOpen || MapOpen || !GameManager.HasInstance || GameManager.Instance.Dungeon == null) return;
             int px = Mathf.Max(1, GungeonUI.Px);
-            float y = 70 * px;
-            foreach (var kv in othersMapOpen)
+            float boxW = 120 * px, boxH = 72 * px, x0 = 8 * px, y0 = 64 * px;
+            foreach (var kv in othersMap)
             {
-                if (!kv.Value) continue;
+                var v = kv.Value;
+                if (!v.Open || v.HalfH <= 0f) continue;
                 string who = "Your friend";
                 foreach (var c in NetSession.Instance.Node.Connections) if (c.Slot == kv.Key) who = GungeonUI.WhoName(c);
                 if (who == "your friend") who = "Your friend";
-                GungeonUI.Text(who + " is looking at the map", new Vector2(10 * px, y), GungeonUI.Font.Small, Color.white);
-                y += 12 * px;
+                DrawMiniView(who, v, new Rect(x0, y0, boxW, boxH), px);
+                y0 += boxH + 18 * px;
             }
+        }
+
+        /// <summary>A small picture of what that player's map shows: the rooms in view that this game has seen,
+        /// and every player as a dot in their color.</summary>
+        static void DrawMiniView(string who, MapView v, Rect box, int px)
+        {
+            float halfW = v.HalfH * box.width / box.height;
+            var world = Rect.MinMaxRect(v.Center.x - halfW, v.Center.y - v.HalfH, v.Center.x + halfW, v.Center.y + v.HalfH);
+            System.Func<Vector2, Vector2> toBox = p => new Vector2((p.x - world.xMin) / world.width * box.width, (world.yMax - p.y) / world.height * box.height);
+            var old = GUI.color;
+            GUI.color = new Color(0f, 0f, 0f, 0.7f);
+            GUI.DrawTexture(new Rect(box.x - px, box.y - px, box.width + 2 * px, box.height + 2 * px), Texture2D.whiteTexture);
+            GUI.BeginGroup(box);
+            var inside = new Rect(0, 0, box.width, box.height);
+            foreach (var room in GameManager.Instance.Dungeon.data.rooms)
+            {
+                if (room == null || room.area == null || room.visibility == Dungeonator.RoomHandler.VisibilityStatus.OBSCURED) continue;
+                var bl = room.area.basePosition.ToVector2();
+                var tr = bl + room.area.dimensions.ToVector2();
+                if (tr.x < world.xMin || bl.x > world.xMax || tr.y < world.yMin || bl.y > world.yMax) continue;
+                Vector2 a = toBox(new Vector2(bl.x, tr.y)), b2 = toBox(new Vector2(tr.x, bl.y));
+                GUI.color = room.visibility == Dungeonator.RoomHandler.VisibilityStatus.CURRENT ? new Color(0.55f, 0.55f, 0.6f, 0.9f) : new Color(0.35f, 0.35f, 0.4f, 0.9f);
+                GUI.DrawTexture(Rect.MinMaxRect(a.x, a.y, b2.x, b2.y), Texture2D.whiteTexture);
+            }
+            foreach (var p in GameManager.Instance.AllPlayers)
+            {
+                if (!p) continue;
+                var s = toBox(p.CenterPosition);
+                if (!inside.Contains(s)) continue;
+                var col = PartnerUI.ColorFor(p);
+                GUI.color = Color.black;
+                GUI.DrawTexture(new Rect(s.x - 3 * px, s.y - 3 * px, 6 * px, 6 * px), Texture2D.whiteTexture);
+                GUI.color = new Color(col.r, col.g, col.b, 1f);
+                GUI.DrawTexture(new Rect(s.x - 2 * px, s.y - 2 * px, 4 * px, 4 * px), Texture2D.whiteTexture);
+            }
+            GUI.EndGroup();
+            GUI.color = old;
+            GungeonUI.Text(who + "'s map", new Vector2(box.x, box.yMax + 3 * px), GungeonUI.Font.Small, Color.white);
         }
 
         public static void Apply(Connection from, ref WireReader r)
