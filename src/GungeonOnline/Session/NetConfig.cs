@@ -50,7 +50,7 @@ namespace GungeonOnline.Session
             OverlayKey = c.Bind("Interface", "OverlayKey", KeyCode.F8, "Opens the online menu.");
             PauseFreezesEveryone = c.Bind("Gameplay", "PauseFreezesEveryone", false, "Host only: pausing stops the game for all players.");
             SecondFightLock = c.Bind("Gameplay", "SecondFightLock", true, "While one room is in combat, other uncleared rooms stay shut.");
-            DoorGraceSeconds = c.Bind("Gameplay", "DoorGraceSeconds", 3f, "Host only. When a fight starts, its doors stay open this long while a teammate is still outside, so they can walk in instead of being pulled. 0 = off.");
+            DoorGraceSeconds = c.Bind("Gameplay", "DoorGraceSeconds", 6f, new ConfigDescription("Host only. When a fight starts, its doors stay open this long while a teammate is still outside, so they can walk in instead of being pulled. 0 = off.", new AcceptableValueRange<float>(0f, 30f)));
             SharedMoney = c.Bind("Gameplay", "SharedMoney", true, "Host only. On: one shared wallet of shells and keys, like local co-op. Off: each player has their own.");
             LocatorStyle = c.Bind("Interface", "LocatorStyle", 5, new ConfigDescription("When your friend is off screen, a marker at the screen edge points to them. 5 pickup tag (default), 1 speech bubble, 0 off.", new AcceptableValueRange<int>(0, 5)));
             CoopStyle = c.Bind("Gameplay", "CoopStyle", 0, new ConfigDescription("Host only. 0 Classic: start a fight and your partner is pulled in, like local co-op. 1 Explore: one fight at a time, nobody pulled.", new AcceptableValueRange<int>(0, 1)));

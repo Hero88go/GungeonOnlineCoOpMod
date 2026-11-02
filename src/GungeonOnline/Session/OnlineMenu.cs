@@ -266,10 +266,16 @@ namespace GungeonOnline.Session
                     Add("Back", () => Go(Screen.Session));
                     break;
                 case Screen.ResumeSlots:
-                    for (int i = 0; i <= RunBackup.Slots; i++)
+                    info = "Autosaves: the newest save of each of your last runs (saved every minute and every floor).";
+                    foreach (var f in RunBackup.RecentRuns(4))
+                    {
+                        string file = f;
+                        Add("Autosave: " + RunBackup.FileSummary(file), () => { RunBackup.ResumeFile(file); Go(Screen.Host); });
+                    }
+                    for (int i = 1; i <= RunBackup.Slots; i++)
                     {
                         int slot = i;
-                        Add((slot == 0 ? "Last autosave: " : $"Slot {slot}: ") + RunBackup.SlotSummary(slot), () => { RunBackup.ResumeSlot(slot); Go(Screen.Host); }, RunBackup.SlotUsable(slot));
+                        Add($"Slot {slot}: " + RunBackup.SlotSummary(slot), () => { RunBackup.ResumeSlot(slot); Go(Screen.Host); }, RunBackup.SlotUsable(slot));
                     }
                     Add("Back", () => Go(Screen.Home));
                     break;
@@ -294,8 +300,8 @@ namespace GungeonOnline.Session
                     Add("Shared shells and keys: " + (NetConfig.SharedMoney.Value ? "On" : "Off"), () => NetConfig.SharedMoney.Value = !NetConfig.SharedMoney.Value, true,
                         d => NetConfig.SharedMoney.Value = !NetConfig.SharedMoney.Value);
                     Add("Doors wait for teammates: " + (NetConfig.DoorGraceSeconds.Value > 0f ? NetConfig.DoorGraceSeconds.Value.ToString("0") + " s" : "Off"),
-                        () => NetConfig.DoorGraceSeconds.Value = NetConfig.DoorGraceSeconds.Value >= 5f ? 0f : NetConfig.DoorGraceSeconds.Value + 1f, true,
-                        d => NetConfig.DoorGraceSeconds.Value = Mathf.Clamp(NetConfig.DoorGraceSeconds.Value + d, 0f, 5f));
+                        () => NetConfig.DoorGraceSeconds.Value = NetConfig.DoorGraceSeconds.Value >= 30f ? 0f : Mathf.Round(NetConfig.DoorGraceSeconds.Value) + 1f, true,
+                        d => NetConfig.DoorGraceSeconds.Value = Mathf.Clamp(Mathf.Round(NetConfig.DoorGraceSeconds.Value) + d, 0f, 30f));
                     Add("Back", Back);
                     break;
                 case Screen.SetFriend:
@@ -693,7 +699,7 @@ namespace GungeonOnline.Session
 
         static void SetCount(int n)
         {
-            n = n < 2 ? 4 : n > 4 ? 2 : n; // 2, 3, 4, round and round
+            n = n < 2 ? 8 : n > 8 ? 2 : n; // 2 to 8, round and round
             var node = NetSession.Instance != null ? NetSession.Instance.Node : null;
             int already = node != null ? node.Connections.Count + 1 : 1;
             if (n < already) { Toasts.Show(already + " players are already in", 3f, true); n = already; }

@@ -86,7 +86,7 @@ namespace GungeonOnline.Session
                 File.WriteAllText(Latest, text);
                 var all = new List<string>(Directory.GetFiles(Dir, "run-*.txt"));
                 all.Sort();
-                for (int i = 0; i < all.Count - 10; i++) File.Delete(all[i]);
+                for (int i = 0; i < all.Count - 40; i++) File.Delete(all[i]);
                 var w = new WireWriter(text.Length + 16);
                 w.U8(MsgBackupCopy); w.Str(text);
                 NetSession.Instance.Node.Broadcast((byte)Channel.Backup, w.ToArray(), Delivery.ReliableOrdered);
@@ -216,9 +216,33 @@ namespace GungeonOnline.Session
         static string SlotPath(int slot) => Path.Combine(Dir, "slot-" + slot + ".txt");
 
         /// <summary>One line for a slot: what is in it, or "Empty". Slot 0 is the automatic save.</summary>
-        public static string SlotSummary(int slot)
+        public static string SlotSummary(int slot) => Summary(LoadFile(slot == 0 ? Latest : SlotPath(slot)));
+
+        /// <summary>The newest autosave of each of the last few runs (a crash or a drop can end any of them).</summary>
+        static string EndedFile => Path.Combine(Dir, "ended-runs.txt");
+
+        public static List<string> RecentRuns(int max)
         {
-            var b = LoadFile(slot == 0 ? Latest : SlotPath(slot));
+            var list = new List<string>();
+            var seeds = new HashSet<int>();
+            try { if (File.Exists(EndedFile)) foreach (var l in File.ReadAllLines(EndedFile)) if (int.TryParse(l.Trim(), out var es)) seeds.Add(es); } catch { }
+            var all = new List<string>(Directory.GetFiles(Dir, "run-*.txt"));
+            all.Sort();
+            all.Reverse();
+            foreach (var f in all)
+            {
+                var b = LoadFile(f);
+                if (b == null || b.FloorIndex <= 0 || !seeds.Add(b.Seed)) continue;
+                if (!b.Ended) list.Add(f);
+                if (list.Count >= max) break;
+            }
+            return list;
+        }
+
+        public static string FileSummary(string path) => Summary(LoadFile(path));
+
+        static string Summary(Backup b)
+        {
             if (b == null || b.FloorIndex <= 0) return "Empty";
             var names = new List<string>();
             foreach (var p in b.Players) names.Add(string.IsNullOrEmpty(p.Prefab) ? "?" : p.Prefab.Replace("Player", ""));
@@ -250,7 +274,7 @@ namespace GungeonOnline.Session
             {
                 if (!SceneObjects.InBreach || (NetSession.Active && !NetSession.IsHost) || PendingResume != null) return false;
                 for (int i = 0; i <= Slots; i++) if (SlotUsable(i)) return true;
-                return false;
+                return RecentRuns(1).Count > 0;
             }
         }
 
@@ -270,9 +294,11 @@ namespace GungeonOnline.Session
 
         public static void ResumeAsHost() => ResumeSlot(0);
 
-        public static void ResumeSlot(int slot)
+        public static void ResumeSlot(int slot) => ResumeFile(slot == 0 ? Latest : SlotPath(slot));
+
+        public static void ResumeFile(string path)
         {
-            var b = LoadFile(slot == 0 ? Latest : SlotPath(slot));
+            var b = LoadFile(path);
             if (b == null) return;
             PendingResume = b;
             restoredSlots.Clear();
@@ -323,8 +349,8 @@ namespace GungeonOnline.Session
             if (saveAt > 0 && now >= saveAt) { saveAt = -1f; SaveNow("floor start"); }
             if (RunSync.CurrentIndex >= 0 && !SceneObjects.InBreach && now >= nextPeriodic)
             {
-                if (nextPeriodic > 0) SaveNow("every 2 minutes");
-                nextPeriodic = now + 120f;
+                if (nextPeriodic > 0) SaveNow("every minute");
+                nextPeriodic = now + 60f;
             }
             // Resuming: give each returning friend their saved things once their character is back on this floor.
             if (PendingResume != null && !SceneObjects.InBreach && RunSync.CurrentIndex >= 0)
@@ -353,6 +379,8 @@ namespace GungeonOnline.Session
             if (b == null || b.Ended) return;
             b.Ended = true;
             try { File.WriteAllText(Latest, Serialize(b)); } catch { }
+            // Its other autosaves are over too: never offer this run again.
+            try { File.AppendAllText(EndedFile, b.Seed + "\n"); } catch { }
         }
     }
 }

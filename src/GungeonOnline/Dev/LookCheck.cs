@@ -14,6 +14,58 @@ namespace GungeonOnline.Dev
         static float nextLog;
 
         static bool reticleDone, stoneDone, customDone;
+        static int propStep;
+        static Vector2 barrelStart, tableStart;
+        static float propNext;
+
+        /// <summary>GO_PROP_AT=seconds (guest): kick the nearest barrel, then flip the nearest table, the way the
+        /// interact button does. Both games log where that barrel and table are ("PROPTEST") every second after.</summary>
+        static void PropTest(float t, PlayerController me)
+        {
+            if (!float.TryParse(System.Environment.GetEnvironmentVariable("GO_PROP_AT"), out var at) || t < at || t < propNext) return;
+            if (Game.SceneObjects.InBreach || GameManager.Instance.IsLoadingLevel) return;
+            propNext = t + 1f;
+            if (!Session.NetSession.IsHost && propStep == 0)
+            {
+                var k = Nearest(Game.SceneObjects.All<KickableObject>(), me.CenterPosition, x => x && x.specRigidbody && x.specRigidbody.enabled);
+                if (!k) { Plugin.Log.LogInfo("PROPTEST no barrel on this floor"); propStep = 9; return; }
+                barrelStart = k.transform.position;
+                me.WarpToPoint(barrelStart + new Vector2(-1.2f, 0.2f));
+                propStep = 1;
+                return;
+            }
+            if (!Session.NetSession.IsHost && propStep == 1)
+            {
+                var k = Nearest(Game.SceneObjects.All<KickableObject>(), barrelStart, x => x);
+                k.Interact(me);
+                Plugin.Log.LogInfo($"PROPTEST kicked barrel from {barrelStart}");
+                var f = Nearest(Game.SceneObjects.All<FlippableCover>(), me.CenterPosition, x => x && !x.IsFlipped);
+                if (f) { tableStart = f.transform.position; me.WarpToPoint(tableStart + new Vector2(0f, -1.5f)); }
+                propStep = 2;
+                return;
+            }
+            if (!Session.NetSession.IsHost && propStep == 2)
+            {
+                var f = Nearest(Game.SceneObjects.All<FlippableCover>(), tableStart, x => x);
+                if (f && !f.IsFlipped) { f.Interact(me); Plugin.Log.LogInfo($"PROPTEST flipped table at {tableStart}"); }
+                propStep = 3;
+                return;
+            }
+            // Both: report every kicked barrel and flipped table there is (the test compares host and guest).
+            var sb = new System.Text.StringBuilder($"PROPTEST wall={System.DateTime.Now:HH:mm:ss.f}");
+            foreach (var k in Game.SceneObjects.All<KickableObject>())
+                if (k && k.specRigidbody && (k.specRigidbody.Velocity.sqrMagnitude > 0.01f || Vector2.Distance(k.transform.position, barrelStart) < 40f))
+                    sb.Append($" barrel@{(Vector2)k.transform.position:F1}");
+            foreach (var f in Game.SceneObjects.All<FlippableCover>()) if (f && f.IsFlipped) sb.Append($" table@{(Vector2)f.transform.position:F1}:flipped");
+            Plugin.Log.LogInfo(sb.ToString());
+        }
+
+        static T Nearest<T>(System.Collections.Generic.List<T> items, Vector2 p, System.Func<T, bool> ok) where T : Component
+        {
+            T best = null; float bd = float.MaxValue;
+            foreach (var x in items) { if (!x || !ok(x)) continue; float d = Vector2.Distance(x.transform.position, p); if (d < bd) { bd = d; best = x; } }
+            return best;
+        }
 
         /// <summary>GO_RETICLE_AT=seconds (host): a bullet kin drops into the host's room the way reinforcements do,
         /// with the warning reticle first.</summary>
@@ -108,6 +160,7 @@ namespace GungeonOnline.Dev
                 Plugin.Log.LogInfo("CUSTOMTEST going to " + name);
                 GameManager.Instance.LoadCustomLevel(name);
             }
+            try { PropTest(t, me); } catch (System.Exception e) { Plugin.Log.LogInfo("PROPTEST error " + e.Message); }
             try { ReticleTest(t, me); } catch (System.Exception e) { Plugin.Log.LogInfo("RETICLETEST error " + e.Message); }
             try { GunTest(t, me); } catch (System.Exception e) { Plugin.Log.LogInfo("GUNTEST error " + e.Message); }
             if (t < nextLog) return;

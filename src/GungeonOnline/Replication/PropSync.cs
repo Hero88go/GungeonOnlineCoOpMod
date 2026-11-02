@@ -17,7 +17,7 @@ namespace GungeonOnline.Replication
     internal sealed class PropSync : MonoBehaviour
     {
         public static PropSync Instance { get; private set; }
-        const byte EvMinor = 80, EvMajor = 81, EvFlip = 82, EvCarts = 83, EvElevator = 84, EvMyCart = 85, EvKick = 86, EvKickPos = 87, EvMovers = 88;
+        const byte EvMinor = 80, EvMajor = 81, EvFlip = 82, EvCarts = 83, EvElevator = 84, EvMyCart = 85, EvKick = 86, EvKickPos = 87, EvMovers = 88, EvKickReq = 89, EvFlipReq = 1; // EvFlipReq goes on the Props channel (the event ids are all taken)
 
         static bool scope;
         static bool IsClient => NetSession.Active && !NetSession.IsHost;
@@ -39,7 +39,11 @@ namespace GungeonOnline.Replication
             h.Patch(AccessTools.Method(typeof(KickableObject), "Kick"), prefix: new HarmonyMethod(t, nameof(KickPrefix)), postfix: new HarmonyMethod(t, nameof(KickPost)));
             h.Patch(AccessTools.Method(typeof(MajorBreakable), nameof(MajorBreakable.Break)), prefix: new HarmonyMethod(t, nameof(ClientBlock)), postfix: new HarmonyMethod(t, nameof(MajorPost)));
             h.Patch(AccessTools.Method(typeof(FlippableCover), nameof(FlippableCover.Flip), new[] { typeof(DungeonData.Direction) }),
-                prefix: new HarmonyMethod(t, nameof(ClientBlock)), postfix: new HarmonyMethod(t, nameof(FlipPost)));
+                prefix: new HarmonyMethod(t, nameof(FlipPrefix)), postfix: new HarmonyMethod(t, nameof(FlipPost)));
+            // A flip by a player starts by switching on the flipped table's wall, before the flip itself: on a guest
+            // that left an upright table blocking like a flipped one. The whole flip waits for the host.
+            h.Patch(AccessTools.Method(typeof(FlippableCover), nameof(FlippableCover.Flip), new[] { typeof(SpeculativeRigidbody) }),
+                prefix: new HarmonyMethod(t, nameof(FlipByPlayerPrefix)));
             // The exit elevator leaves when the host's game sees everyone inside; the guest's elevator follows it,
             // so a guest whose copy of the players lines up a little differently is never left standing in it.
             h.Patch(AccessTools.Method(typeof(ElevatorDepartureController), nameof(ElevatorDepartureController.DoDeparture)),
@@ -65,6 +69,22 @@ namespace GungeonOnline.Replication
             NetSession.Instance.On(Channel.Props, (c, data, d) =>
             {
                 if (data.Length > 0 && data[0] == EvMyCart && NetSession.IsHost) { var mr = new WireReader(data, 1, data.Length - 1); ApplyGuestCart(c, ref mr); return; }
+                if (data.Length > 0 && data[0] == EvFlipReq && NetSession.IsHost)
+                {
+                    var fr = new WireReader(data, 1, data.Length - 1);
+                    var fp = new Vector2(fr.F32(), fr.F32());
+                    int dir = fr.I32();
+                    try
+                    {
+                        // Flip as that player's copy here, so the table's own rules (some only tip sideways) apply.
+                        var who = PlayerSlots.ForSlot(c.Slot);
+                        var f = Nearest(SceneObjects.All<FlippableCover>(), fp, x => !x.IsFlipped);
+                        if (f && who && who.specRigidbody) f.Flip(who.specRigidbody);
+                        else HostRequest(EvFlipReq, fp, dir);
+                    }
+                    catch (System.Exception e) { Plugin.Log.LogWarning("PropSync: flip request " + e.Message); }
+                    return;
+                }
                 if (data.Length > 0 && data[0] == EvMovers && !NetSession.IsHost && WorldSync.Instance != null && WorldSync.Instance.FloorReady)
                 { var vr = new WireReader(data, 1, data.Length - 1); ApplyMovers(ref vr); return; }
                 if (data.Length == 0 || data[0] != EvCarts || WorldSync.Instance == null || !WorldSync.Instance.FloorReady) return;
@@ -94,15 +114,64 @@ namespace GungeonOnline.Replication
         int nextKick = 1;
         float nextKickSend;
 
-        static bool KickPrefix(KickableObject __instance, out Vector2 __state)
+        /// <summary>Guest: its own kick starts the roll here at once and asks the host to kick the real barrel (the
+        /// host's copy of this player does not always get to it). The host's roll is the one that counts.</summary>
+        static bool KickPrefix(KickableObject __instance, SpeculativeRigidbody kickerRigidbody, out Vector2 __state)
         {
             __state = __instance ? (Vector2)__instance.transform.position : Vector2.zero;
-            return ClientBlock();
+            if (!IsClient || scope) return true;
+            var me = PlayerSlots.Local;
+            if (!me || !kickerRigidbody || kickerRigidbody != me.specRigidbody || !Instance) return false;
+            Instance.SendAt(EvKickReq, __state, NetSession.LocalSlot);
+            return true;
+        }
+
+        /// <summary>Guest: flipping a table asks the host, which flips the real one (and with it everyone's).</summary>
+        static bool FlipPrefix(FlippableCover __instance, DungeonData.Direction flipDirection)
+        {
+            if (!IsClient || scope) return true;
+            if (Instance && __instance && !__instance.IsFlipped)
+            {
+                var w = Instance.w;
+                Vector2 at = __instance.transform.position;
+                w.Reset(); w.U8(EvFlipReq); w.F32(at.x); w.F32(at.y); w.I32((int)flipDirection);
+                NetSession.Instance.Node.Broadcast((byte)Channel.Props, w.ToArray(), Delivery.ReliableOrdered);
+            }
+            return false;
+        }
+
+        static bool FlipByPlayerPrefix(FlippableCover __instance, SpeculativeRigidbody flipperRigidbody)
+        {
+            if (!IsClient || scope) return true;
+            if (__instance && !__instance.IsFlipped && flipperRigidbody) FlipPrefix(__instance, __instance.GetFlipDirection(flipperRigidbody));
+            return false;
+        }
+
+        readonly Dictionary<int, float> kickedAt = new Dictionary<int, float>();
+
+        void HostRequest(byte type, Vector2 p, int extra)
+        {
+            if (type == EvKickReq)
+            {
+                var k = Nearest(SceneObjects.All<KickableObject>(), p, x => x && x.specRigidbody && x.specRigidbody.enabled);
+                var who = PlayerSlots.ForSlot(extra);
+                if (!k || !who || !who.specRigidbody) return;
+                // Already rolling, or kicked a moment ago by this player's copy here: once is enough.
+                if (k.specRigidbody.Velocity.sqrMagnitude > 0.01f) return;
+                if (kickedAt.TryGetValue(k.GetInstanceID(), out var t0) && Time.realtimeSinceStartup - t0 < 0.6f) return;
+                AccessTools.Method(typeof(KickableObject), "Kick").Invoke(k, new object[] { who.specRigidbody });
+            }
+            else if (type == EvFlipReq)
+            {
+                var f = Nearest(SceneObjects.All<FlippableCover>(), p, x => !x.IsFlipped);
+                if (f) f.Flip((DungeonData.Direction)extra);
+            }
         }
 
         static void KickPost(KickableObject __instance, SpeculativeRigidbody kickerRigidbody, Vector2 __state)
         {
             if (!IsHostSession || scope || !Instance || !__instance) return;
+            Instance.kickedAt[__instance.GetInstanceID()] = Time.realtimeSinceStartup;
             int id = Instance.nextKick++;
             Instance.rolling[id] = __instance;
             var kicker = kickerRigidbody ? kickerRigidbody.GetComponent<PlayerController>() : null;
@@ -314,7 +383,14 @@ namespace GungeonOnline.Replication
         /// <summary>Events 80-89 from the host.</summary>
         public void Apply(byte type, ref WireReader r)
         {
-            if (NetSession.IsHost) return;
+            if (NetSession.IsHost)
+            {
+                if (type != EvKickReq) return;
+                var hp = new Vector2(r.F32(), r.F32());
+                int he = r.I32();
+                try { HostRequest(type, hp, he); } catch (System.Exception e) { Plugin.Log.LogWarning("PropSync: request " + e.Message); }
+                return;
+            }
             var p = new Vector2(r.F32(), r.F32());
             int extra = r.I32();
             scope = true;
@@ -349,7 +425,9 @@ namespace GungeonOnline.Replication
                             guestKicked[id] = k;
                             var who = slot < 15 ? PlayerSlots.ForSlot(slot) : null;
                             var m = AccessTools.Method(typeof(KickableObject), "Kick");
-                            if (who && who.specRigidbody) m.Invoke(k, new object[] { who.specRigidbody });
+                            // Our own kick already started this roll here.
+                            bool rolling = k.specRigidbody && k.specRigidbody.Velocity.sqrMagnitude > 0.01f;
+                            if (!rolling && who && who.specRigidbody) m.Invoke(k, new object[] { who.specRigidbody });
                             break;
                         }
                     case EvKickPos:

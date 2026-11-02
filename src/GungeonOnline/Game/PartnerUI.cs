@@ -118,14 +118,16 @@ namespace GungeonOnline.Game
             int px = GungeonUI.Px;
             foreach (var p in GameManager.Instance.AllPlayers)
             {
-                if (!p || !NPlayers.HudPatches.HeartRow(ui, p.PlayerIDX, out var row)) continue;
+                if (!p || !NPlayers.HudPatches.HeartRow(ui, p.PlayerIDX, out var row, out float iconH)) continue;
                 string head = Head(p);
                 var hs = GungeonUI.SpriteSize(head);
                 if (hs.y <= 0) continue;
-                float h = row.height * NPlayers.HudPatches.PortraitScale, w = hs.x * h / hs.y;
+                if (iconH <= 0f) iconH = row.height;
+                float h = iconH * NPlayers.HudPatches.PortraitScale, w = hs.x * h / hs.y;
                 bool left = p.PlayerIDX % 2 == 0;
                 float x = left ? row.xMin - w - 1.5f * px : row.xMax + 1.5f * px;
-                float y = row.center.y - h / 2f;
+                float y = row.yMin + iconH / 2f - h / 2f; // beside the first line of hearts
+                x = Mathf.Clamp(x, 0f, Screen.width - w);
                 var col = ColorFor(p);
                 // A strip in their color under the face, so the face, the name tag and the outline all match.
                 var old = GUI.color;

@@ -65,7 +65,17 @@ namespace GungeonOnline.Game.NPlayers
         }
 
         /// <summary>Harness (GO_HUD_TEST=1): make and show the extra panels in a solo game, to check their placement.</summary>
-        public static bool LayoutTest => System.Environment.GetEnvironmentVariable("GO_HUD_TEST") == "1";
+        public static bool LayoutTest => LayoutTestCount > 0;
+        /// <summary>GO_HUD_TEST=N (2 to 8; 1 means 4): HUD panels for that many players in a solo game.</summary>
+        public static int LayoutTestCount
+        {
+            get
+            {
+                var v = System.Environment.GetEnvironmentVariable("GO_HUD_TEST");
+                if (string.IsNullOrEmpty(v) || !int.TryParse(v, out int n) || n <= 0) return 0;
+                return n == 1 ? 4 : Mathf.Clamp(n, 2, 8);
+            }
+        }
 
         public static void TestExtend()
         {
@@ -76,7 +86,7 @@ namespace GungeonOnline.Game.NPlayers
 
         static void Extend(GameUIRoot ui)
         {
-            int want = LayoutTest ? 4 : Players.Count;
+            int want = LayoutTest ? LayoutTestCount : Players.Count;
             var bars = barsField.GetValue(ui) as List<GameUIReloadBarController>;
             while (ui.heartControllers.Count < want && ui.heartControllers.Count >= 2)
             {
@@ -236,9 +246,14 @@ namespace GungeonOnline.Game.NPlayers
         }
 
         /// <summary>Screen rectangle (GUI coordinates) of a player's heart row, if it is showing.</summary>
-        public static bool HeartRow(GameUIRoot ui, int id, out Rect row)
+        public static bool HeartRow(GameUIRoot ui, int id, out Rect row) => HeartRow(ui, id, out row, out _);
+
+        /// <summary>Also the height of one heart: with many hearts the row wraps onto a second line, and a face sized
+        /// to both lines no longer fit its place (it ran off the screen edge).</summary>
+        public static bool HeartRow(GameUIRoot ui, int id, out Rect row, out float iconH)
         {
             row = default(Rect);
+            iconH = 0f;
             if (!ui || ui.heartControllers == null || id < 0 || id >= ui.heartControllers.Count || !ui.heartControllers[id]) return false;
             var panel = ui.heartControllers[id].GetComponent<dfControl>();
             if (!panel || !panel.IsVisible) return false;
@@ -248,6 +263,7 @@ namespace GungeonOnline.Game.NPlayers
                 if (!c.IsVisible) continue;
                 var sr = c.GetScreenRect();
                 x0 = Mathf.Min(x0, sr.xMin); x1 = Mathf.Max(x1, sr.xMax); y0 = Mathf.Min(y0, sr.yMin); y1 = Mathf.Max(y1, sr.yMax);
+                if (iconH <= 0f) iconH = sr.height;
             }
             if (x1 <= x0) return false;
             row = Rect.MinMaxRect(x0, y0, x1, y1);
@@ -341,14 +357,16 @@ namespace GungeonOnline.Game.NPlayers
         }
 
         /// <summary>
-        /// Player 3's hearts and blanks sit on player 1's rows, just right of player 1's; player 4's on player 2's rows,
-        /// just left of player 2's. The HUD stays as tall as normal co-op, and follows as hearts are gained or lost.
+        /// Players 3, 5 and 7 continue player 1's rows to the right, players 4, 6 and 8 continue player 2's rows to the
+        /// left, each just beside the one before. The HUD stays as tall as normal co-op, and follows as hearts are
+        /// gained or lost.
         /// </summary>
         static void PlaceBeside(GameUIRoot ui, int k)
         {
             int side = k % 2;
+            int before = k - 2; // the player this one sits beside (1 or 2 for players 3 and 4)
             float gap = 18f + PortraitRoom; // and room for this player's face, when portraits are on
-            var rows = new[] { Icons(ui.heartControllers[side], ui.blankControllers[side]), Icons(ui.heartControllers[k], ui.blankControllers[k]) };
+            var rows = new[] { Icons(ui.heartControllers[before], ui.blankControllers[before]), Icons(ui.heartControllers[k], ui.blankControllers[k]) };
             // One shared edge for both rows (hearts and blanks), so each player's block reads as a column.
             if (!Edges(rows[0], out float l0, out float r0)) return;
             Edges(rows[1], out float l1, out float r1);
