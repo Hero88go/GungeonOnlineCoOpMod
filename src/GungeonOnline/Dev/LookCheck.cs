@@ -16,6 +16,9 @@ namespace GungeonOnline.Dev
         static bool reticleDone, stoneDone, customDone;
         static int propStep;
         static Vector2 barrelStart, tableStart;
+        static Dungeonator.Dungeon propFloor;
+        static System.Collections.Generic.List<KickableObject> propBarrels;
+        static System.Collections.Generic.List<FlippableCover> propTables;
         static float propNext;
 
         /// <summary>GO_PROP_AT=seconds (guest): kick the nearest barrel, then flip the nearest table, the way the
@@ -25,9 +28,12 @@ namespace GungeonOnline.Dev
             if (!float.TryParse(System.Environment.GetEnvironmentVariable("GO_PROP_AT"), out var at) || t < at || t < propNext) return;
             if (Game.SceneObjects.InBreach || GameManager.Instance.IsLoadingLevel) return;
             propNext = t + 1f;
+            // Searching every object is slow: once per floor.
+            var dungeon = GameManager.Instance.Dungeon;
+            if (dungeon != propFloor) { propFloor = dungeon; propBarrels = Game.SceneObjects.All<KickableObject>(); propTables = Game.SceneObjects.All<FlippableCover>(); }
             if (!Session.NetSession.IsHost && propStep == 0)
             {
-                var k = Nearest(Game.SceneObjects.All<KickableObject>(), me.CenterPosition, x => x && x.specRigidbody && x.specRigidbody.enabled);
+                var k = Nearest(propBarrels, me.CenterPosition, x => x && x.specRigidbody && x.specRigidbody.enabled);
                 if (!k) { Plugin.Log.LogInfo("PROPTEST no barrel on this floor"); propStep = 9; return; }
                 barrelStart = k.transform.position;
                 me.WarpToPoint(barrelStart + new Vector2(-1.2f, 0.2f));
@@ -36,27 +42,27 @@ namespace GungeonOnline.Dev
             }
             if (!Session.NetSession.IsHost && propStep == 1)
             {
-                var k = Nearest(Game.SceneObjects.All<KickableObject>(), barrelStart, x => x);
+                var k = Nearest(propBarrels, barrelStart, x => x);
                 k.Interact(me);
                 Plugin.Log.LogInfo($"PROPTEST kicked barrel from {barrelStart}");
-                var f = Nearest(Game.SceneObjects.All<FlippableCover>(), me.CenterPosition, x => x && !x.IsFlipped);
+                var f = Nearest(propTables, me.CenterPosition, x => x && !x.IsFlipped);
                 if (f) { tableStart = f.transform.position; me.WarpToPoint(tableStart + new Vector2(0f, -1.5f)); }
                 propStep = 2;
                 return;
             }
             if (!Session.NetSession.IsHost && propStep == 2)
             {
-                var f = Nearest(Game.SceneObjects.All<FlippableCover>(), tableStart, x => x);
+                var f = Nearest(propTables, tableStart, x => x);
                 if (f && !f.IsFlipped) { f.Interact(me); Plugin.Log.LogInfo($"PROPTEST flipped table at {tableStart}"); }
                 propStep = 3;
                 return;
             }
             // Both: report every kicked barrel and flipped table there is (the test compares host and guest).
             var sb = new System.Text.StringBuilder($"PROPTEST wall={System.DateTime.Now:HH:mm:ss.f}");
-            foreach (var k in Game.SceneObjects.All<KickableObject>())
+            foreach (var k in propBarrels)
                 if (k && k.specRigidbody && k.specRigidbody.enabled)
                     sb.Append($" barrel@{(Vector2)k.transform.position:F1}");
-            foreach (var f in Game.SceneObjects.All<FlippableCover>()) if (f && f.IsFlipped) sb.Append($" table@{(Vector2)f.transform.position:F1}:flipped");
+            foreach (var f in propTables) if (f && f.IsFlipped) sb.Append($" table@{(Vector2)f.transform.position:F1}:flipped");
             Plugin.Log.LogInfo(sb.ToString());
         }
 
