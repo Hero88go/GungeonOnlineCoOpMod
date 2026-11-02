@@ -134,6 +134,8 @@ namespace GungeonOnline.Game
         sealed class MapView { public bool Open; public Vector2 Center; public float HalfH; }
         static readonly Dictionary<int, MapView> othersMap = new Dictionary<int, MapView>();
         bool mapWasOpen;
+        static bool mapErrLogged;
+        static float nextDrawLog;
         float nextView;
 
         void SendMapView(int slot, bool open, Vector2 center, float halfH, Connection except)
@@ -155,6 +157,7 @@ namespace GungeonOnline.Game
             if (slot == NetSession.LocalSlot) return;
             if (!othersMap.TryGetValue(slot, out var v)) othersMap[slot] = v = new MapView();
             v.Open = open; v.Center = center; v.HalfH = halfH;
+            if (Dev.DevEnv.IsHarness) Plugin.Log.LogInfo($"MAPVIEW got slot={slot} open={open} center={center} halfH={halfH:F1} me={(PlayerSlots.Local ? PlayerSlots.Local.CenterPosition : Vector2.zero)}");
         }
 
         /// <summary>The world spot at the middle of this game's full map, and half its height in world units.</summary>
@@ -167,6 +170,7 @@ namespace GungeonOnline.Game
             Vector3 d = m.cameraRef.transform.position - m.transform.position;
             center = new Vector2(d.x * 8f, d.y * 8f);
             halfH = m.cameraRef.orthographicSize * 8f;
+            if (Dev.DevEnv.IsHarness) Plugin.Log.LogInfo($"MAPVIEW own cam={m.cameraRef.transform.position} map={m.transform.position} scale={m.transform.lossyScale} ortho={m.cameraRef.orthographicSize} center={center} me={(PlayerSlots.Local ? PlayerSlots.Local.CenterPosition : Vector2.zero)}");
             return true;
         }
 
@@ -206,12 +210,17 @@ namespace GungeonOnline.Game
         {
             float halfW = v.HalfH * box.width / box.height;
             var world = Rect.MinMaxRect(v.Center.x - halfW, v.Center.y - v.HalfH, v.Center.x + halfW, v.Center.y + v.HalfH);
-            System.Func<Vector2, Vector2> toBox = p => new Vector2((p.x - world.xMin) / world.width * box.width, (world.yMax - p.y) / world.height * box.height);
+            // Screen positions, clipped to the box by hand (the game's GUI scaling breaks GUI.BeginGroup's clipping).
+            System.Func<Vector2, Vector2> toBox = p => new Vector2(box.x + (p.x - world.xMin) / world.width * box.width, box.y + (world.yMax - p.y) / world.height * box.height);
             var old = GUI.color;
-            GUI.color = new Color(0f, 0f, 0f, 0.7f);
+            // A light frame, then the dark inside: it reads against dark floors too.
+            GUI.color = new Color(0.8f, 0.78f, 0.7f, 0.9f);
             GUI.DrawTexture(new Rect(box.x - px, box.y - px, box.width + 2 * px, box.height + 2 * px), Texture2D.whiteTexture);
-            GUI.BeginGroup(box);
-            var inside = new Rect(0, 0, box.width, box.height);
+            GUI.color = new Color(0.03f, 0.03f, 0.05f, 0.85f);
+            GUI.DrawTexture(box, Texture2D.whiteTexture);
+            var inside = box;
+            int drawnRooms = 0, seenRooms = 0;
+            foreach (var rr in GameManager.Instance.Dungeon.data.rooms) if (rr != null && rr.visibility != Dungeonator.RoomHandler.VisibilityStatus.OBSCURED) seenRooms++;
             foreach (var room in GameManager.Instance.Dungeon.data.rooms)
             {
                 if (room == null || room.area == null || room.visibility == Dungeonator.RoomHandler.VisibilityStatus.OBSCURED) continue;
@@ -219,8 +228,10 @@ namespace GungeonOnline.Game
                 var tr = bl + room.area.dimensions.ToVector2();
                 if (tr.x < world.xMin || bl.x > world.xMax || tr.y < world.yMin || bl.y > world.yMax) continue;
                 Vector2 a = toBox(new Vector2(bl.x, tr.y)), b2 = toBox(new Vector2(tr.x, bl.y));
+                drawnRooms++;
                 GUI.color = room.visibility == Dungeonator.RoomHandler.VisibilityStatus.CURRENT ? new Color(0.55f, 0.55f, 0.6f, 0.9f) : new Color(0.35f, 0.35f, 0.4f, 0.9f);
-                GUI.DrawTexture(Rect.MinMaxRect(a.x, a.y, b2.x, b2.y), Texture2D.whiteTexture);
+                var rr2 = Rect.MinMaxRect(Mathf.Max(a.x, box.xMin), Mathf.Max(a.y, box.yMin), Mathf.Min(b2.x, box.xMax), Mathf.Min(b2.y, box.yMax));
+                if (rr2.width > 0f && rr2.height > 0f) GUI.DrawTexture(rr2, Texture2D.whiteTexture);
             }
             foreach (var p in GameManager.Instance.AllPlayers)
             {
@@ -233,8 +244,12 @@ namespace GungeonOnline.Game
                 GUI.color = new Color(col.r, col.g, col.b, 1f);
                 GUI.DrawTexture(new Rect(s.x - 2 * px, s.y - 2 * px, 4 * px, 4 * px), Texture2D.whiteTexture);
             }
-            GUI.EndGroup();
             GUI.color = old;
+            if (Dev.DevEnv.IsHarness && Time.realtimeSinceStartup > nextDrawLog)
+            {
+                nextDrawLog = Time.realtimeSinceStartup + 2f;
+                Plugin.Log.LogInfo($"MAPVIEW drew box={box} world={world} rooms={drawnRooms} of {GameManager.Instance.Dungeon.data.rooms.Count} seen={seenRooms} me={toBox(PlayerSlots.Local.CenterPosition)}");
+            }
             GungeonUI.Text(who + "'s map", new Vector2(box.x, box.yMax + 3 * px), GungeonUI.Font.Small, Color.white);
         }
 
@@ -351,7 +366,7 @@ namespace GungeonOnline.Game
         void OnGUI()
         {
             if (Event.current.type == EventType.Repaint && NetSession.Active && GungeonUI.Ready)
-                try { DrawMapNotes(); } catch (System.Exception) { }
+                try { DrawMapNotes(); } catch (System.Exception e) { if (!mapErrLogged) { mapErrLogged = true; Plugin.Log.LogWarning("Map view: " + e); } }
             if (Event.current.type != EventType.Repaint || pings.Count == 0 || !NetSession.Active || !GungeonUI.Ready) return;
             if (OnlineMenu.IsOpen || MapOpen || !GameManager.HasInstance) return;
             var gm = GameManager.Instance;
