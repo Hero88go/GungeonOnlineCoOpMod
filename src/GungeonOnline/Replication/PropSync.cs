@@ -377,7 +377,7 @@ namespace GungeonOnline.Replication
 
         List<KickableObject> barrels;
         Vector2[] barrelSent;
-        float nextBarrels, barrelsQuietUntil;
+        float nextBarrels, barrelsQuietUntil, nextFullBarrels;
 
         List<KickableObject> Barrels()
         {
@@ -407,7 +407,10 @@ namespace GungeonOnline.Replication
                 if (list[i] && ((Vector2)list[i].transform.position - barrelSent[i]).sqrMagnitude > 0.0004f) { moved = true; barrelSent[i] = list[i].transform.position; }
             float now = Time.realtimeSinceStartup;
             if (moved) barrelsQuietUntil = now + 2f; // keep sending a little after they stop, so the last word lands
-            else if (now > barrelsQuietUntil) return;
+            // Every two seconds anyway: a barrel can start a little apart on a guest (where the floor put it), and a
+            // friend kicking it there sent it somewhere else.
+            else if (now > barrelsQuietUntil && now < nextFullBarrels) return;
+            if (now >= nextFullBarrels) nextFullBarrels = now + 2f;
             w.Reset(); w.U8(EvBarrels); w.U16((ushort)Mathf.Min(1000, list.Count));
             for (int i = 0; i < list.Count && i < 1000; i++)
             {
