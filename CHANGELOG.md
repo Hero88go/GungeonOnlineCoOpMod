@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.2.3
+
+- Barrels are in the same place on every screen, including ones that started a little apart, and a barrel shot to pieces is gone for everyone.
+- A table a friend sees flipped is flipped for everyone. Before, a table standing slightly apart on one screen could stay upright there.
+- Fixed a freeze after a lag spike: a burst of held-up messages made the game sort the same timings thousands of times.
+- Fixed a freeze for a friend on the title screen or picking a character while the host played on.
+- The Gorgun's stone gaze no longer skips everyone after a stutter.
+
 ## 1.2.2
 
 - Secret floors (the Oubliette, the Abbey and the others) take everyone. Before, the host went alone, the friend was told their mods did not match and could not rejoin. A friend who finds the way in first brings everyone along.
