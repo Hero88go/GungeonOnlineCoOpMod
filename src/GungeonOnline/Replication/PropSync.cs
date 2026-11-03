@@ -86,7 +86,7 @@ namespace GungeonOnline.Replication
                     {
                         // Flip as that player's copy here, so the table's own rules (some only tip sideways) apply.
                         var who = PlayerSlots.ForSlot(c.Slot);
-                        var f = Nearest(SceneObjects.All<FlippableCover>(), fp, x => !x.IsFlipped);
+                        var f = TableNear(fp);
                         if (f && who && who.specRigidbody) f.Flip(who.specRigidbody);
                         else HostRequest(EvFlipReq, fp, dir);
                     }
@@ -193,7 +193,7 @@ namespace GungeonOnline.Replication
             }
             else if (type == EvFlipReq)
             {
-                var f = Nearest(SceneObjects.All<FlippableCover>(), p, x => !x.IsFlipped);
+                var f = TableNear(p);
                 if (f) f.Flip((DungeonData.Direction)extra);
             }
         }
@@ -241,10 +241,18 @@ namespace GungeonOnline.Replication
             if (IsHostSession && !scope && Instance) { Instance.SendAt(EvFlip, __instance.transform.position, (int)flipDirection); Instance.Flips++; }
         }
 
-        static T Nearest<T>(IEnumerable<T> items, Vector2 p, System.Func<T, bool> ok) where T : Component
+        /// <summary>The unflipped table at this spot. A table can stand a little apart on another machine (where the
+        /// floor put it, like barrels): a flip there found no table within reach and that table stayed upright.</summary>
+        static FlippableCover TableNear(Vector2 p)
+        {
+            var all = SceneObjects.All<FlippableCover>();
+            return Nearest(all, p, x => !x.IsFlipped) ?? Nearest(all, p, x => !x.IsFlipped, 2.5f);
+        }
+
+        static T Nearest<T>(IEnumerable<T> items, Vector2 p, System.Func<T, bool> ok, float within = 0.75f) where T : Component
         {
             T best = null;
-            float bestD = 0.75f * 0.75f;
+            float bestD = within * within;
             foreach (var it in items)
             {
                 if (!it || !ok(it)) continue;
@@ -573,7 +581,7 @@ namespace GungeonOnline.Replication
                         }
                     case EvFlip:
                         {
-                            var f = Nearest(SceneObjects.All<FlippableCover>(), p, x => !x.IsFlipped);
+                            var f = TableNear(p);
                             if (f) { f.Flip((DungeonData.Direction)extra); Flips++; }
                             if (Dev.DevEnv.IsHarness) Plugin.Log.LogInfo($"PROPSYNC flip from host at {p} dir={extra} matched={(f ? ((Vector2)f.transform.position).ToString() : "none")} flipped={(f ? f.IsFlipped : false)}");
                             break;
