@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.2.4
+
+- Reports are saved in a folder of their own in the game folder, **Gungeon Online Reports**, instead of on your Desktop. Reports already on your Desktop are moved there when the game starts.
+- New: *Open reports folder* (Settings, Help and advanced) opens that folder.
+
 ## 1.2.3
 
 - Barrels are in the same place on every screen, including ones that started a little apart, and a barrel shot to pieces is gone for everyone.

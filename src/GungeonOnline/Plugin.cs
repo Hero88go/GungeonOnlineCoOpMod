@@ -9,7 +9,7 @@ namespace GungeonOnline
     {
         public const string Guid = "gungeononline";
         public const string Name = "Enter The Gungeon Online Co-Op Mod";
-        public const string Version = "1.2.3";
+        public const string Version = "1.2.4";
 
         internal static ManualLogSource Log;
         internal static Plugin Instance;
@@ -65,6 +65,7 @@ namespace GungeonOnline
             harmony.Patch(AccessTools.Method(typeof(GameManager), nameof(GameManager.DoGameOver)),
                 prefix: new HarmonyMethod(typeof(Plugin), nameof(OnGameOver)));
             Dev.QuickStart.Prepare();
+            Session.Reports.MoveOldDesktopReports();
             Log.LogInfo($"{Name} {Version} loaded. game={Session.NetSession.GameHash} dev={Dev.DevEnv.Summary()}");
             if (Dev.DevEnv.IsHarness) TryInstall("NoMouseGrab", () => Dev.NoMouseGrab.Install(harmony));
             if (Dev.DevEnv.IsHarness) TryInstall("FreezeProbe", () => Dev.FreezeProbe.Install(harmony));

@@ -7,7 +7,7 @@ namespace GungeonOnline.Session
 {
     /// <summary>
     /// "Send report": one text file with everything needed to look into a problem afterwards (mod log, desync log,
-    /// settings, connection numbers), saved to the Desktop and sent to the developer. Anything that points at a
+    /// settings, connection numbers), saved in the game folder (Gungeon Online Reports) and sent to the developer. Anything that points at a
     /// person (invite codes, IP addresses, the Windows user name, Steam ids) is removed first.
     /// </summary>
     internal static class Reports
@@ -21,6 +21,40 @@ namespace GungeonOnline.Session
             text = System.Text.RegularExpressions.Regex.Replace(text, @"([A-Za-z]:[\\/]+Users[\\/]+)[^\\/\r\n]+", "$1<user>", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
             text = System.Text.RegularExpressions.Regex.Replace(text, @"\b7656119\d{10}\b", "<steamid>");
             return text;
+        }
+
+        /// <summary>Where reports are kept: a folder of their own in the game folder (the one with EtG.exe).</summary>
+        public static string Folder => Path.Combine(BepInEx.Paths.GameRootPath, "Gungeon Online Reports");
+
+        /// <summary>Reports used to be saved to the Desktop: move any found there into the reports folder.</summary>
+        public static void MoveOldDesktopReports()
+        {
+            if (Environment.GetEnvironmentVariable("GO_RUN_DIR") != null) return;
+            try
+            {
+                string desktop = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
+                if (string.IsNullOrEmpty(desktop) || !Directory.Exists(desktop)) return;
+                var old = Directory.GetFiles(desktop, "GungeonOnline-report-*.txt");
+                if (old.Length == 0) return;
+                Directory.CreateDirectory(Folder);
+                int moved = 0;
+                foreach (var f in old)
+                {
+                    string to = Path.Combine(Folder, Path.GetFileName(f));
+                    if (File.Exists(to)) continue;
+                    File.Move(f, to);
+                    moved++;
+                }
+                Plugin.Log.LogInfo($"Reports: moved {moved} old reports from the Desktop to {Folder}");
+            }
+            catch (Exception e) { Plugin.Log.LogWarning("Reports: could not move old Desktop reports: " + e.Message); }
+        }
+
+        /// <summary>Open the reports folder in Explorer.</summary>
+        public static void OpenFolder()
+        {
+            try { Directory.CreateDirectory(Folder); System.Diagnostics.Process.Start("explorer.exe", "\"" + Folder + "\""); }
+            catch (Exception e) { Plugin.Log.LogWarning("Reports: could not open the folder: " + e.Message); }
         }
 
         public static void Save()
@@ -49,9 +83,10 @@ namespace GungeonOnline.Session
                 Append(sb, "Desync log", Path.Combine(Path.Combine(BepInEx.Paths.BepInExRootPath, "GungeonOnline"), "desync.log"), 300);
                 Append(sb, "Metrics (last 10 minutes)", Metrics.FilePath, 120);
                 Append(sb, "Mod log (last lines)", Path.Combine(BepInEx.Paths.BepInExRootPath, "LogOutput.log"), 1500);
-                // Tests keep their copy in the run folder, never on the Desktop.
-                string desktop = Environment.GetEnvironmentVariable("GO_RUN_DIR") ?? Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
-                string file = Path.Combine(desktop, "GungeonOnline-report-" + DateTime.Now.ToString("yyyyMMdd-HHmmss") + ".txt");
+                // Tests keep their copy in the run folder.
+                string dir = Environment.GetEnvironmentVariable("GO_RUN_DIR") ?? Folder;
+                Directory.CreateDirectory(dir);
+                string file = Path.Combine(dir, "GungeonOnline-report-" + DateTime.Now.ToString("yyyyMMdd-HHmmss") + ".txt");
                 string text = Scrub(sb.ToString());
                 File.WriteAllText(file, text);
                 Toasts.Show("Sending report...");
@@ -68,7 +103,7 @@ namespace GungeonOnline.Session
         {
             // Tests point this somewhere else or turn it off (GO_REPORT_URL=off).
             string url = Environment.GetEnvironmentVariable("GO_REPORT_URL") ?? RelayUrl;
-            if (url == "off") { Toasts.Show("Report saved to your Desktop"); yield break; }
+            if (url == "off") { Toasts.Show("Report saved in the game folder, Gungeon Online Reports"); yield break; }
             var body = Encoding.UTF8.GetBytes(text);
             using (var req = new UnityEngine.Networking.UnityWebRequest(url, "POST"))
             {
@@ -82,14 +117,14 @@ namespace GungeonOnline.Session
                 {
                     string id = answer.Substring(5).Trim();
                     Plugin.Log.LogInfo("Report sent: " + id);
-                    Toasts.Show("Report sent (" + id + "). A copy is on your Desktop.", 8f);
+                    Toasts.Show("Report sent (" + id + "). A copy is in the game folder, Gungeon Online Reports.", 8f);
                 }
                 else if (req.responseCode == 429)
-                    Toasts.Show("Report saved to your Desktop (one send every 2 minutes)", 6f, true);
+                    Toasts.Show("Report saved in the game folder (one send every 2 minutes)", 6f, true);
                 else
                 {
                     Plugin.Log.LogInfo("Report send failed: " + req.responseCode + " " + req.error);
-                    Toasts.Show("Could not send the report. It is saved on your Desktop.", 6f, true);
+                    Toasts.Show("Could not send the report. It is saved in the game folder, Gungeon Online Reports.", 6f, true);
                 }
             }
         }

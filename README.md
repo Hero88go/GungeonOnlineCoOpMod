@@ -82,7 +82,7 @@ Gungeon's co-op has always been couch co-op: one shared camera, and player two i
 
 ## Install
 
-Download the latest **`GungeonOnline-1.2.3.zip`** from [Releases](../../releases) and unzip it anywhere (right-click, Extract All). Close the game first. Then pick **either** way below. Everyone needs the same version.
+Download the latest **`GungeonOnline-1.2.4.zip`** from [Releases](../../releases) and unzip it anywhere (right-click, Extract All). Close the game first. Then pick **either** way below. Everyone needs the same version.
 
 ### Option A: the installer (easiest)
 
@@ -155,7 +155,7 @@ My mods will always be free but donations are welcome on kofi! [ko-fi.com/hero88
 - **Find each other:** a small tag at the screen edge points to your friend when they are off your screen. Optional name tags and your friend's crosshair, in the colors you pick.
 - **Map pings:** with the full map open, right click a spot (or press X / Square on a controller to ping the map crosshair). Everyone sees a ring there in your color, on their map and on screen, for a few seconds.
 - **Settings in plain words:** smoothing for your friend's character, correction speed, pause behaviour.
-- **Send report:** one button sends me a report (and saves a copy to your Desktop) if anything looks off. Invite codes, IP addresses and your Windows user name are removed first.
+- **Send report:** one button sends me a report (and saves a copy in the game folder, under *Gungeon Online Reports*) if anything looks off. *Open reports folder* in the same menu opens it. Invite codes, IP addresses and your Windows user name are removed first.
 - **One-click install:** the installer finds the game on Steam, GOG or Epic by itself.
 
 ## How it plays differently from couch co-op
@@ -207,9 +207,9 @@ Your normal save is used and gets credit for runs you play online. Run backups g
 
 ## Status
 
-Version 1.2.3 beta. **Found a bug? Please [open an issue](../../issues)** and use *Send report* (Settings, Help and advanced) if you can. Every report helps.
+Version 1.2.4 beta. **Found a bug? Please [open an issue](../../issues)** and use *Send report* (Settings, Help and advanced) if you can. Every report helps.
 
-For r2modman, download **`GungeonOnline-1.2.3-r2modman.zip`** from Releases, then in r2modman pick Settings, Import local mod, and choose that zip. It uses the mod manager's BepInEx pack. When you join, the mod lists any mods that differ between you. Host and guest need matching mods and versions. ExpandTheGungeon 3.0.8 with MtG API 1.9.2 and BepInExPack_EtG 5.4.2101 has been tested across several floors. Other modpacks may still be incompatible; a different floor layout now returns the guest safely to the Breach with an explanation.
+For r2modman, download **`GungeonOnline-1.2.4-r2modman.zip`** from Releases, then in r2modman pick Settings, Import local mod, and choose that zip. It uses the mod manager's BepInEx pack. When you join, the mod lists any mods that differ between you. Host and guest need matching mods and versions. ExpandTheGungeon 3.0.8 with MtG API 1.9.2 and BepInExPack_EtG 5.4.2101 has been tested across several floors. Other modpacks may still be incompatible; a different floor layout now returns the guest safely to the Breach with an explanation.
 
 ## Settings
 

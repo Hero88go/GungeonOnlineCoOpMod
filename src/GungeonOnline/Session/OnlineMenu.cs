@@ -344,6 +344,7 @@ namespace GungeonOnline.Session
                     break;
                 case Screen.SetHelp:
                     Add("Send report", () => Reports.Save());
+                    Add("Open reports folder", () => Reports.OpenFolder());
                     Add("Check for updates: " + (NetConfig.CheckUpdates.Value ? "On" : "Off"), () => NetConfig.CheckUpdates.Value = !NetConfig.CheckUpdates.Value);
                     int sm = NetConfig.SmoothingMs.Value;
                     Add("Friend smoothing: " + (sm < 0 ? "Auto" : sm + " ms"), null, true,

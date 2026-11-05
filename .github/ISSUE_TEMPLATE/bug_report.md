@@ -17,4 +17,4 @@ labels: bug
 - Controller or mouse and keyboard:
 
 **Report**
-Open the online menu, pick *Save report*, and attach the file from your Desktop. Reports from both players help most.
+Open the online menu, pick *Save report*, and attach the file from the Gungeon Online Reports folder in your game folder (Settings, Help and advanced, Open reports folder). Reports from both players help most.

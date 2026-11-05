@@ -4,7 +4,7 @@ Bug reports, logs and pull requests are welcome.
 
 ## Reporting a bug
 
-1. Open the online menu and pick **Save report**. A text file appears on your Desktop.
+1. Open the online menu and pick **Save report**. A text file appears in the game folder, under Gungeon Online Reports.
 2. Open an issue with what happened, roughly when, and attach the report from both players if you can.
 
 ## Building
