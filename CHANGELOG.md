@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.5
+
+- Fixed: with the door wait on (the default), the host's open doors were shown shut on a friend's screen until the next repair, and every fight room was logged as a repaired desync. The doors now open and close at the same moments on every screen.
+- A boss intro that fails on a friend's screen no longer leaves that screen out of step with the host's (where a blank could be spent on one screen only); the failure is logged and play goes on without the cutscene.
+- Joining by invite code: when the direct path to the host never opens and both players are on Steam, the join switches to Steam by itself.
+
 ## 1.2.4
 
 - Reports are saved in a folder of their own in the game folder, **Gungeon Online Reports**, instead of on your Desktop. Reports already on your Desktop are moved there when the game starts.

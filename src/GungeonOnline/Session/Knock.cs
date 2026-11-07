@@ -87,6 +87,14 @@ namespace GungeonOnline.Session
                     {
                         Posted++;
                         if (!told) { told = true; Plugin.Log.LogInfo("Knock: asked the host's game to open a path to us"); }
+                        // The host's game tells the relay its Steam id when it has one: if the direct path never opens,
+                        // a joiner on Steam connects through Steam instead (see NetSession.Rejected).
+                        foreach (var line in (req.downloadHandler.text ?? "").Split('\n'))
+                            if (line.StartsWith("steam:") && ulong.TryParse(line.Substring(6).Trim(), out var id) && id != 0 && s.KnockSteamId != id)
+                            {
+                                s.KnockSteamId = id;
+                                Plugin.Log.LogInfo("Knock: the host is on Steam too" + (s.SteamReady ? "; Steam is the way in if the direct path stays shut" : ""));
+                            }
                     }
                     else if (!failed)
                     {
@@ -112,7 +120,9 @@ namespace GungeonOnline.Session
                 if (node.Connections.Count != peers) { peers = node.Connections.Count; fastUntil = Clock + 300f; }
                 var me = s.PublicEndPoint;
                 if (me == null || node.Connections.Count + 1 >= node.MaxPlayers) { yield return new WaitForSecondsRealtime(1f); continue; }
-                using (var req = UnityWebRequest.Get(url + "?host=" + me + "&token=" + Token))
+                string steam = "";
+                if (s.SteamReady) try { steam = "&steam=" + Steamworks.SteamUser.GetSteamID().m_SteamID; } catch { }
+                using (var req = UnityWebRequest.Get(url + "?host=" + me + "&token=" + Token + steam))
                 {
                     req.timeout = 5;
                     yield return req.SendWebRequest();

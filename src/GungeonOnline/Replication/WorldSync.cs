@@ -170,8 +170,12 @@ namespace GungeonOnline.Replication
             return false;
         }
 
-        static void SealPostfix(RoomHandler __instance) { if (IsHostSession) Instance.SendRoomSeal(__instance, true); }
-        static void UnsealPostfix(RoomHandler __instance) { if (IsHostSession) Instance.SendRoomSeal(__instance, false); }
+        // Only what really happened is sent. A seal the host's game skipped (the door wait holds the doors open for a
+        // teammate still outside, and a room already sealed is left alone) used to be sent as "sealed" anyway, so the
+        // guest's doors shut while the host's stood open, and every fight room showed up as a desync until the next
+        // repair. Likewise an unseal the game refused (a room that stays shut by design) is not sent as "open".
+        static void SealPostfix(RoomHandler __instance) { if (IsHostSession && __instance.IsSealed) Instance.SendRoomSeal(__instance, true); }
+        static void UnsealPostfix(RoomHandler __instance) { if (IsHostSession && !__instance.IsSealed) Instance.SendRoomSeal(__instance, false); }
 
         static bool IsReplica(HealthHaver hh)
         {

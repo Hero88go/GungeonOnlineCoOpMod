@@ -82,7 +82,7 @@ Gungeon's co-op has always been couch co-op: one shared camera, and player two i
 
 ## Install
 
-Download the latest **`GungeonOnline-1.2.4.zip`** from [Releases](../../releases) and unzip it anywhere (right-click, Extract All). Close the game first. Then pick **either** way below. Everyone needs the same version.
+Download the latest **`GungeonOnline-1.2.5.zip`** from [Releases](../../releases) and unzip it anywhere (right-click, Extract All). Close the game first. Then pick **either** way below. Everyone needs the same version.
 
 ### Option A: the installer (easiest)
 
@@ -119,7 +119,7 @@ Start the game and press pause: you should see **PLAY ONLINE** in the pause menu
 3. Your friend copies the code and picks **Join**.
 4. Each player picks a character in their own Breach. The host walks into the Gungeon when everyone is ready.
 
-If the host's router or firewall blocks the join, the mod opens a path by itself within a few seconds. If it still doesn't go through, your friend's *reply code* is copied for them: they send it to you and you pick *Let in friend* while they're still trying. If both routers are strict, use a VPN such as Tailscale or Radmin VPN and join with `ip:port`.
+If the host's router or firewall blocks the join, the mod opens a path by itself within a few seconds. If it still doesn't go through and you are both on Steam, the join switches to Steam on its own (Steam relays the connection when it has to). Otherwise your friend's *reply code* is copied for them: they send it to you and you pick *Let in friend* while they're still trying. If both routers are strict, use a VPN such as Tailscale or Radmin VPN and join with `ip:port`.
 
 ## Playing with 3 to 8 (experimental)
 
@@ -202,14 +202,14 @@ Your normal save is used and gets credit for runs you play online. Run backups g
 - **No PLAY ONLINE in the pause menu:** the files went into the wrong folder. They must sit right next to `EtG.exe` (you should see `winhttp.dll` and the `BepInEx` folder beside it). Steam players: check you copied into the folder that **Browse local files** opened. On Linux or Steam Deck, also set the Proton launch option from the FAQ above.
 - **The installer window closes or does nothing:** use Option B, it does the same thing.
 - **"Your friend has a different version":** both players need the same download. Get the latest from [Releases](../../releases).
-- **Can't connect:** give it a few seconds, the mod opens a path through the host's router by itself. If it still fails, the joiner's *reply code* is copied for them: they send it to the host, who picks *Let in friend*. Swapping who hosts also often works. If both routers are strict, use Tailscale or Radmin VPN and join with `ip:port`.
+- **Can't connect:** give it a few seconds, the mod opens a path through the host's router by itself. If you are both on Steam and it still fails, the join switches to Steam by itself. Otherwise the joiner's *reply code* is copied for them: they send it to the host, who picks *Let in friend*. Swapping who hosts also often works. If both routers are strict, use Tailscale or Radmin VPN and join with `ip:port`.
 - Anything else: [open an issue](../../issues) and use *Send report* (Settings, Help and advanced).
 
 ## Status
 
-Version 1.2.4 beta. **Found a bug? Please [open an issue](../../issues)** and use *Send report* (Settings, Help and advanced) if you can. Every report helps.
+Version 1.2.5 beta. **Found a bug? Please [open an issue](../../issues)** and use *Send report* (Settings, Help and advanced) if you can. Every report helps.
 
-For r2modman, download **`GungeonOnline-1.2.4-r2modman.zip`** from Releases, then in r2modman pick Settings, Import local mod, and choose that zip. It uses the mod manager's BepInEx pack. When you join, the mod lists any mods that differ between you. Host and guest need matching mods and versions. ExpandTheGungeon 3.0.8 with MtG API 1.9.2 and BepInExPack_EtG 5.4.2101 has been tested across several floors. Other modpacks may still be incompatible; a different floor layout now returns the guest safely to the Breach with an explanation.
+For r2modman, download **`GungeonOnline-1.2.5-r2modman.zip`** from Releases, then in r2modman pick Settings, Import local mod, and choose that zip. It uses the mod manager's BepInEx pack. When you join, the mod lists any mods that differ between you. Host and guest need matching mods and versions. ExpandTheGungeon 3.0.8 with MtG API 1.9.2 and BepInExPack_EtG 5.4.2101 has been tested across several floors. Other modpacks may still be incompatible; a different floor layout now returns the guest safely to the Breach with an explanation.
 
 ## Settings
 

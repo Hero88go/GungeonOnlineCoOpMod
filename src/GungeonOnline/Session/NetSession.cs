@@ -68,6 +68,9 @@ namespace GungeonOnline.Session
         /// <summary>Send a few packets toward a friend so this side's router lets their join in (see <see cref="Knock"/>).</summary>
         public void OpenPathTo(IPEndPoint ep) { if (Active) AddPunch(ep); }
         public bool SteamReady => steam != null;
+        /// <summary>Joining by code: the host's Steam id, learned through the relay (0 when unknown or the host has no Steam).</summary>
+        public ulong KnockSteamId;
+        ulong steamFallback; // a Steam id to connect to on the next frame, after a code join found no way through
         public void InviteSteamFriend() => steam?.Invite();
 
         readonly Dictionary<Channel, Action<Connection, byte[], Delivery>> handlers = new Dictionary<Channel, Action<Connection, byte[], Delivery>>();
@@ -347,6 +350,15 @@ namespace GungeonOnline.Session
             {
                 Plugin.Log.LogWarning("Join rejected: " + why);
                 if (Reconnecting && why == "no answer from host") { nextReconnect = Now + 2.0; return; } // keep trying
+                if (why == "no answer from host" && steamHost == null && KnockSteamId != 0 && steam != null)
+                {
+                    // Both games are on Steam and the direct path stayed shut (a router or carrier that drops everything
+                    // unasked for, even after the punch): go through Steam, which relays when it has to.
+                    steamFallback = KnockSteamId;
+                    Toasts.Show("The direct connection is blocked. Connecting through Steam instead...", 7f);
+                    Plugin.Log.LogInfo("Join: no direct path to the host after " + (joinExtended ? "80" : "20") + " s; connecting through Steam");
+                    return;
+                }
                 if (why == "no answer from host" && !joinExtended && steamHost == null && node.LastHost is IPEndPoint hostEp)
                 {
                     // Keep this same connection trying for another minute: the host's game can still open a path to us
@@ -410,6 +422,14 @@ namespace GungeonOnline.Session
                 }
             }
             NoteMainTick();
+            if (steamFallback != 0)
+            {
+                var id = steamFallback;
+                steamFallback = 0;
+                Leave(); // the code join, quietly (no error to show): a new frame, outside its callbacks
+                LastError = null;
+                JoinSteam(new Steamworks.CSteamID(id));
+            }
             if (node == null) return;
             double now = Now;
             node.Poll(now);
@@ -478,6 +498,7 @@ namespace GungeonOnline.Session
             InviteCodeText = null;
             punchTargets.Clear();
             joinExtended = false;
+            KnockSteamId = 0;
             stunFailLogged = false;
             upnpLogged = UpnpMapper.State.Idle;
             Status = "Offline";
