@@ -14,7 +14,7 @@ namespace GungeonOnline.Game
     /// </summary>
     internal sealed class RunSync : MonoBehaviour
     {
-        const byte MsgLoadLevel = 1, MsgRejoin = 2, MsgLayout = 3, MsgClone = 4, MsgMods = 5, MsgCustomRequest = 7;
+        const byte MsgLoadLevel = 1, MsgRejoin = 2, MsgLayout = 3, MsgClone = 4, MsgMods = 5, MsgCustomRequest = 7, MsgPastBoss = 8;
         /// <summary>Secret floors (the Oubliette, the Abbey, ...) load by name, not by floor number: sent as "custom:NAME".</summary>
         const string CustomTag = "custom:";
         /// <summary>Host: the secret floor we are on, or null on a regular floor.</summary>
@@ -160,12 +160,12 @@ namespace GungeonOnline.Game
             if (NetSession.IsHost)
             {
                 if (custom == "tt_foyer" || custom == "MainMenu" || custom == "Foyer" || custom == "tt_tutorial" || SceneObjects.InBreach) return true;
-                currentCustom = custom;
+                currentCustom = custom + PastFlags(custom);
                 int index = GM.Field("nextLevelIndex").GetValue<int>() + SecretFloor;
                 CurrentIndex = index;
                 ReseedForFloor(gm.CurrentRunSeed, index);
                 var w = new WireWriter(96);
-                w.U8(MsgLoadLevel); w.I32(gm.CurrentRunSeed); w.I32(index); w.Str(CustomTag + custom); w.U8(0);
+                w.U8(MsgLoadLevel); w.I32(gm.CurrentRunSeed); w.I32(index); w.Str(CustomTag + currentCustom); w.U8(0);
                 Replication.WorldSync.Instance?.OnFloorUnloading();
                 GenContext.CaptureAndSend(gm.CurrentRunSeed, index);
                 NetSession.Instance.Node.Broadcast((byte)Channel.Control, w.ToArray(), Delivery.ReliableOrdered);
@@ -177,6 +177,69 @@ namespace GungeonOnline.Game
             AskHostFor(custom);
             GM.Field("m_loadingLevel").SetValue(false);
             return false;
+        }
+
+        /// <summary>A character's Past carries state the Ark sets on the host's screen only: which Past (the Cultist's
+        /// co-op Past and the Gunslinger's both load by flag), and the reset to final-fight guns and full health that
+        /// every player gets. Sent after the level name as ";coop", ";gunslinger", ";reset".</summary>
+        static string PastFlags(string custom)
+        {
+            string f = "";
+            if (GameManager.IsCoopPast) f += ";coop";
+            if (GameManager.IsGunslingerPast) f += ";gunslinger";
+            if (custom.StartsWith("fs_")) f += ";reset";
+            PastMode.OwnerSlot = custom.StartsWith("fs_") || GameManager.IsGunslingerPast ? PastMode.PickOwner(custom) : -1;
+            PastMode.ShipPast = custom == "fs_pilot";
+            if (PastMode.OwnerSlot >= 0) { f += ";owner=" + PastMode.OwnerSlot; Plugin.Log.LogInfo($"RunSync: Past {custom} belongs to slot {PastMode.OwnerSlot}"); }
+            return f;
+        }
+
+        /// <summary>Guest: apply the Past flags the host sent, before the Past loads. Returns the level name alone.</summary>
+        static string ApplyPastFlags(string sent)
+        {
+            var parts = sent.Split(';');
+            bool coop = false, gunslinger = false, reset = false; int owner = -1;
+            for (int i = 1; i < parts.Length; i++)
+            {
+                if (parts[i] == "coop") coop = true;
+                else if (parts[i] == "gunslinger") gunslinger = true;
+                else if (parts[i] == "reset") reset = true;
+                else if (parts[i].StartsWith("owner=") && int.TryParse(parts[i].Substring(6), out var o)) owner = o;
+            }
+            PastMode.OwnerSlot = owner;
+            PastMode.ShipPast = parts[0] == "fs_pilot";
+            GameManager.IsCoopPast = coop;
+            GameManager.IsGunslingerPast = gunslinger;
+            var me = PlayerSlots.Local;
+            if (reset && me && me.healthHaver && me.healthHaver.IsAlive)
+            {
+                // The same reset the Ark gives every player on the host's screen; this player's own things are its own.
+                me.ResetToFactorySettings(true, true);
+                me.CharacterUsesRandomGuns = false;
+                me.IsVisible = true;
+                me.ClearAllInputOverrides();
+                Plugin.Log.LogInfo("RunSync: Past reset (final-fight guns, full health)");
+            }
+            if (coop || gunslinger || reset) Plugin.Log.LogInfo($"RunSync: Past {parts[0]} coop={coop} gunslinger={gunslinger} reset={reset} owner={owner}");
+            return parts[0];
+        }
+
+        /// <summary>This screen's Past owner beat the boss: tell every other screen.</summary>
+        public static void SendPastBossDown()
+        {
+            if (!NetSession.Active) return;
+            var w = new WireWriter(8);
+            w.U8(MsgPastBoss);
+            NetSession.Instance.Node.Broadcast((byte)Channel.Control, w.ToArray(), Delivery.ReliableOrdered);
+        }
+
+        /// <summary>This screen's Past owner reached the ending: every other screen plays it too.</summary>
+        public static void SendPastEnding()
+        {
+            if (!NetSession.Active) return;
+            var w = new WireWriter(8);
+            w.U8(MsgPastBoss); w.U8(1);
+            NetSession.Instance.Node.Broadcast((byte)Channel.Control, w.ToArray(), Delivery.ReliableOrdered);
         }
 
         static bool DelayedCustomPrefix(string customLevel)
@@ -234,6 +297,7 @@ namespace GungeonOnline.Game
                 }
                 int index = GM.Field("nextLevelIndex").GetValue<int>();
                 currentCustom = null;
+                PastMode.Reset();
                 ReseedForFloor(gm.CurrentRunSeed, index);
                 CurrentIndex = index;
                 var w = new WireWriter(64);
@@ -304,6 +368,15 @@ namespace GungeonOnline.Game
             var r = new WireReader(data, 0, data.Length);
             byte type = r.U8();
             if (type == MsgMods) { CompareMods(c, r.Str()); return; }
+            if (type == MsgPastBoss)
+            {
+                // The Past's owner beat its boss. The host passes it on to everyone else.
+                if (NetSession.IsHost)
+                    foreach (var other in NetSession.Instance.Node.Connections)
+                        if (other != c) other.Send((byte)Channel.Control, data, Delivery.ReliableOrdered);
+                if (r.Remaining > 0 && r.U8() == 1) PastMode.ApplyEnding(); else PastMode.ApplyBossDown();
+                return;
+            }
             if (type == MsgCustomRequest)
             {
                 string want = r.Str();
@@ -454,7 +527,7 @@ namespace GungeonOnline.Game
             var gm = GameManager.Instance;
             if (injected != null && injected.StartsWith(CustomTag))
             {
-                string custom = injected.Substring(CustomTag.Length);
+                string custom = ApplyPastFlags(injected.Substring(CustomTag.Length));
                 if (gm.CurrentRunSeed != seed) gm.CurrentRunSeed = seed;
                 CurrentIndex = index;
                 ReseedForFloor(seed, index);
@@ -467,6 +540,7 @@ namespace GungeonOnline.Game
                 return;
             }
             if (gm.CurrentRunSeed != seed) gm.CurrentRunSeed = seed;
+            PastMode.Reset();
             ReseedForFloor(seed, index);
             CurrentIndex = index;
             GM.Field("nextLevelIndex").SetValue(index);

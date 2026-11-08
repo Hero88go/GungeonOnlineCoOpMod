@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.2.6
+
+- Character Pasts work online. The player the clock is aimed at is the hero of the Past on every screen, and everyone else comes along as their partner, like couch co-op.
+- In a Past every screen runs the story itself. When the hero beats the Past's boss it falls on every screen, and when the hero's ending starts, everyone's does.
+- The Pilot's Past: the Pilot flies their ship and everyone else flies a co-op ship. Before, a friend's screen could turn them into the Pilot's ship and add an extra player nobody controlled.
+- The Gunslinger's Past and the reset to final-fight guns and full health now reach every player.
+
 ## 1.2.5
 
 - Fixed: with the door wait on (the default), the host's open doors were shown shut on a friend's screen until the next repair, and every fight room was logged as a repaired desync. The doors now open and close at the same moments on every screen.

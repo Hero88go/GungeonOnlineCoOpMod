@@ -24,8 +24,8 @@ namespace GungeonOnline.Replication
         const byte EvDark = 30, EvGoop = 31, EvStone = 32, EvRocket = 33, EvRocketLand = 34, EvReticle = 35, EvVfx = 36, EvVfxStop = 37;
         const float PartRate = 0.05f, FullEvery = 1f;
 
-        static bool IsClient => NetSession.Active && !NetSession.IsHost;
-        static bool IsHostSession => NetSession.Active && NetSession.IsHost;
+        static bool IsClient => NetSession.Active && !NetSession.IsHost && !Game.PastMode.Active; // a Past runs on every screen
+        static bool IsHostSession => NetSession.Active && NetSession.IsHost && !Game.PastMode.Active;
         static bool applying;
 
         readonly WireWriter w = new WireWriter(1400);

@@ -164,6 +164,12 @@ namespace GungeonOnline.Dev
                 customDone = true;
                 string name = System.Environment.GetEnvironmentVariable("GO_CUSTOM_NAME") ?? "tt_sewer";
                 Plugin.Log.LogInfo("CUSTOMTEST going to " + name);
+                // As the Ark does just before it loads a Past.
+                if (System.Environment.GetEnvironmentVariable("GO_PAST_COOP") == "1") GameManager.IsCoopPast = true;
+                if (System.Environment.GetEnvironmentVariable("GO_PAST_GUNSLINGER") == "1") GameManager.IsGunslingerPast = true;
+                if (name.StartsWith("fs_"))
+                    foreach (var pl in GameManager.Instance.AllPlayers)
+                        if (pl && pl.healthHaver.IsAlive) { pl.ResetToFactorySettings(true, true); pl.CharacterUsesRandomGuns = false; }
                 GameManager.Instance.LoadCustomLevel(name);
             }
             try { PropTest(t, me); } catch (System.Exception e) { Plugin.Log.LogInfo("PROPTEST error " + e.Message); }

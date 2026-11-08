@@ -95,7 +95,7 @@ namespace GungeonOnline.Replication
 
         void LateUpdateImpl()
         {
-            if (!NetSession.Active || !NetSession.IsHost || !SceneObjects.OnDungeonFloor) return;
+            if (!NetSession.Active || !NetSession.IsHost || !SceneObjects.OnDungeonFloor || Game.PastMode.Active) return;
             if (Time.realtimeSinceStartup < nextSummary) return;
             nextSummary = Time.realtimeSinceStartup + 1f;
             var ws = WorldSync.Instance;
@@ -136,7 +136,7 @@ namespace GungeonOnline.Replication
                 return;
             }
             if (type == EvAliveSet && !NetSession.IsHost) { WorldSync.Instance?.KeepOnly(ReadIds(ref r)); return; }
-            if (type != EvSummary || NetSession.IsHost || !SceneObjects.OnDungeonFloor) return;
+            if (type != EvSummary || NetSession.IsHost || !SceneObjects.OnDungeonFloor || Game.PastMode.Active) return;
 
             // After a gap (a drop, a long load) summaries that were held up arrive together and describe the past:
             // skip comparisons for two seconds, and only ever compare the newest summary of a frame.

@@ -26,8 +26,8 @@ namespace GungeonOnline.Replication
         static readonly HashSet<int> copyIds = new HashSet<int>();
         /// <summary>Copies (rigidbody ids) that touched our own player: their early end is a real hit, not a loss.</summary>
         static readonly HashSet<int> touchedMe = new HashSet<int>();
-        static bool IsClient => NetSession.Active && !NetSession.IsHost;
-        static bool IsHostSession => NetSession.Active && NetSession.IsHost;
+        static bool IsClient => NetSession.Active && !NetSession.IsHost && !Game.PastMode.Active; // a Past runs on every screen
+        static bool IsHostSession => NetSession.Active && NetSession.IsHost && !Game.PastMode.Active;
 
         sealed class Tracked { public Projectile P; public Vector2 Pos, Vel; public float At; }
         readonly Dictionary<uint, Tracked> hostTracked = new Dictionary<uint, Tracked>();

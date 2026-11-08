@@ -23,8 +23,10 @@ namespace GungeonOnline.Replication
         /// <summary>True while applying a host event on the client (lets the blocked game paths run).</summary>
         public static bool ApplyingHost;
 
-        static bool IsClient => NetSession.Active && !NetSession.IsHost;
-        static bool IsHostSession => NetSession.Active && NetSession.IsHost;
+        // In a character's Past every screen runs its own Past (see Game.PastMode): no copies either way.
+        static bool IsGuest => NetSession.Active && !NetSession.IsHost;
+        static bool IsClient => IsGuest && !Game.PastMode.Active;
+        static bool IsHostSession => NetSession.Active && NetSession.IsHost && !Game.PastMode.Active;
 
         // Host state
         readonly HashSet<Connection> ready = new HashSet<Connection>();
@@ -613,7 +615,7 @@ namespace GungeonOnline.Replication
         /// <summary>Client: after a reconnect on the same floor, ask the host for everything again.</summary>
         public void ResendReady()
         {
-            if (!IsClient || !FloorReady) return;
+            if (!IsGuest || !FloorReady) return;
             lastSnapSeq = 0; // the host may have restarted its numbering
             w.Reset(); w.U8(EvFloorReady); w.I32(GameManager.Instance.CurrentRunSeed);
             NetSession.Instance.Node.Broadcast((byte)Channel.Event, w.ToArray(), Delivery.ReliableOrdered);
@@ -621,11 +623,12 @@ namespace GungeonOnline.Replication
 
         public void OnFloorLoaded()
         {
-            if (!IsClient) return;
+            if (!IsGuest) return;
+            bool past = Game.PastMode.Active || GameManager.Instance.CurrentLevelOverrideState == GameManager.LevelOverrideState.CHARACTER_PAST;
             replicas.Clear(); reaperWanted = false;
             NetIds.Clear();
             int removed = 0;
-            foreach (var a in new List<AIActor>(StaticReferenceManager.AllEnemies))
+            foreach (var a in (past ? new List<AIActor>() : new List<AIActor>(StaticReferenceManager.AllEnemies)))
             {
                 if (a == null || a.GetComponent<PlayerController>() != null) continue;
                 if (a.CompanionOwner != null) continue; // owned companions are per machine; unowned critters replicate
@@ -647,7 +650,7 @@ namespace GungeonOnline.Replication
             FloorReady = true;
             w.Reset(); w.U8(EvFloorReady); w.I32(GameManager.Instance.CurrentRunSeed);
             NetSession.Instance.Node.Broadcast((byte)Channel.Event, w.ToArray(), Delivery.ReliableOrdered);
-            Plugin.Log.LogInfo($"WorldSync: client removed {removed} local enemies, ready");
+            Plugin.Log.LogInfo(past ? "WorldSync: a Past, this screen runs its own; ready" : $"WorldSync: client removed {removed} local enemies, ready");
             foreach (var e in earlyEvents) ApplyEvent(e);
             earlyEvents.Clear();
         }
@@ -1055,6 +1058,7 @@ namespace GungeonOnline.Replication
         void LateUpdateImpl()
         {
             if (!NetSession.Active) return;
+            if (Game.PastMode.Active) return; // every screen runs its own Past
             if (NetSession.IsHost) HostLateUpdate();
             else if (FloorReady) { ClientMoveReplicas(); ClientMoveReaper(); }
         }

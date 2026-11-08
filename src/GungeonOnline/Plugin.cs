@@ -9,7 +9,7 @@ namespace GungeonOnline
     {
         public const string Guid = "gungeononline";
         public const string Name = "Enter The Gungeon Online Co-Op Mod";
-        public const string Version = "1.2.5";
+        public const string Version = "1.2.6";
 
         internal static ManualLogSource Log;
         internal static Plugin Instance;
@@ -32,6 +32,7 @@ namespace GungeonOnline
             TryInstall("GenContext", () => Game.GenContext.Install(harmony));
             TryInstall("PlayerPhysicsGuard", () => Game.PlayerPhysicsGuard.Install(harmony));
             TryInstall("BossIntroGuard", () => Game.BossIntroGuard.Install(harmony));
+            TryInstall("PastMode", () => Game.PastMode.Install(harmony));
             Game.PauseScope.Install(harmony);
             Game.PresentationGate.Install(harmony);
             TryInstall("ConversationSync", () => Game.ConversationSync.Install(harmony));
@@ -69,6 +70,7 @@ namespace GungeonOnline
             Session.Reports.MoveOldDesktopReports();
             Log.LogInfo($"{Name} {Version} loaded. game={Session.NetSession.GameHash} dev={Dev.DevEnv.Summary()}");
             if (Dev.DevEnv.IsHarness) TryInstall("NoMouseGrab", () => Dev.NoMouseGrab.Install(harmony));
+            if (Dev.DevEnv.IsHarness) TryInstall("PastDriver", () => Dev.PastDriver.Install(harmony));
             if (Dev.DevEnv.IsHarness) TryInstall("FreezeProbe", () => Dev.FreezeProbe.Install(harmony));
             gameObject.AddComponent<Session.NetSession>();
             gameObject.AddComponent<Session.Toasts>();
@@ -96,6 +98,7 @@ namespace GungeonOnline
             gameObject.AddComponent<Session.PeerLanes>();
             gameObject.AddComponent<Dev.DevRunner>();
             if (Dev.DevEnv.IsHarness) gameObject.AddComponent<Dev.ReleaseRegression>();
+            if (Dev.DevEnv.IsHarness) gameObject.AddComponent<Dev.PastDriver>();
             StartCoroutine(Dev.QuickStart.Run());
             Dev.AutoSession.Begin();
             StartCoroutine(Welcome());

@@ -27,7 +27,10 @@ namespace GungeonOnline.Game
             {
                 if (!GameManager.HasInstance) return null;
                 if (noPlayerFrame == Time.frameCount && !gmPlayer(GameManager.Instance)) return null;
-                var p = GameManager.Instance.PrimaryPlayer;
+                PlayerController p;
+                PastMode.Bypass++; // this machine's own player, even inside a Past script (where "player 1" is the Past's owner)
+                try { p = GameManager.Instance.PrimaryPlayer; }
+                finally { PastMode.Bypass--; }
                 if (!p) noPlayerFrame = Time.frameCount;
                 return p;
             }
@@ -151,6 +154,8 @@ namespace GungeonOnline.Game
 
         public static PlayerController SpawnRemote(int slot, string prefabPath, bool alt = false)
         {
+            prefabPath = PastMode.PrefabFor(slot, prefabPath); // the Pilot's Past: everyone is a ship
+            if (PastMode.InShipPast) alt = false;
             string choice = prefabPath + (alt ? "|alt" : ""); // a costume change is a new look, like a new character
             var gm = GameManager.Instance;
             var local = Local;
