@@ -33,6 +33,12 @@ namespace GungeonOnline.Dev
 
         static bool InPast => GameManager.HasInstance && GameManager.Instance.CurrentLevelOverrideState == GameManager.LevelOverrideState.CHARACTER_PAST && !GameManager.Instance.IsLoadingLevel;
 
+        static bool AgunimAlive()
+        {
+            foreach (var hh in StaticReferenceManager.AllHealthHavers) if (hh && hh.IsBoss && hh.IsAlive && hh.name.Contains("Agunim")) return true;
+            return false;
+        }
+
         /// <summary>The Bullet's Past: where the floor broke after its first boss, or null.</summary>
         static Vector2? FindHole()
         {
@@ -119,7 +125,8 @@ namespace GungeonOnline.Dev
             {
                 nextKill = now + 3f;
                 foreach (var hh in new List<HealthHaver>(StaticReferenceManager.AllHealthHavers))
-                    if (hh && hh.IsBoss && hh.IsAlive && hh.IsVulnerable && hh.gameObject.activeInHierarchy && hh.aiActor && hh.aiActor.HasBeenEngaged)
+                    if (hh && hh.IsBoss && hh.IsAlive && hh.IsVulnerable && hh.gameObject.activeInHierarchy && hh.aiActor && hh.aiActor.HasBeenEngaged
+                        && !(hh.name.Contains("Gunon") && AgunimAlive())) // the Bullet's Past: its bosses in story order
                     {
                         killed = true;
                         hh.minimumHealth = 0f;
