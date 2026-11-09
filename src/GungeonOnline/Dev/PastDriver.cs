@@ -81,7 +81,8 @@ namespace GungeonOnline.Dev
                 else if (owner && !Object.FindObjectOfType<RobotPastController>() && !Object.FindObjectOfType<PastLabMarineController>() && !Object.FindObjectOfType<GuidePastController>())
                 {
                     foreach (var hh in StaticReferenceManager.AllHealthHavers)
-                        if (hh && hh.IsBoss && hh.IsAlive && (!hh.gameObject.activeInHierarchy || !hh.aiActor || !hh.aiActor.HasBeenEngaged))
+                        if (hh && hh.IsBoss && hh.IsAlive && (!hh.gameObject.activeInHierarchy || !hh.aiActor || !hh.aiActor.HasBeenEngaged)
+                            && !(hh.name.Contains("Gunon") && AgunimAlive()))
                         { to = (Vector2)hh.transform.position + new Vector2(0f, -4f); break; }
                 }
                 else { var o = Game.PastMode.Owner; if (o && Vector2.Distance(o.CenterPosition, me.CenterPosition) > 4f) to = o.transform.position; }
