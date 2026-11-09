@@ -190,6 +190,7 @@ namespace GungeonOnline.Game
             if (custom.StartsWith("fs_")) f += ";reset";
             PastMode.OwnerSlot = custom.StartsWith("fs_") || GameManager.IsGunslingerPast ? PastMode.PickOwner(custom) : -1;
             PastMode.ShipPast = custom == "fs_pilot";
+            PastMode.PastLevel = custom.StartsWith("fs_");
             if (PastMode.OwnerSlot >= 0) { f += ";owner=" + PastMode.OwnerSlot; Plugin.Log.LogInfo($"RunSync: Past {custom} belongs to slot {PastMode.OwnerSlot}"); }
             return f;
         }
@@ -208,6 +209,7 @@ namespace GungeonOnline.Game
             }
             PastMode.OwnerSlot = owner;
             PastMode.ShipPast = parts[0] == "fs_pilot";
+            PastMode.PastLevel = parts[0].StartsWith("fs_");
             GameManager.IsCoopPast = coop;
             GameManager.IsGunslingerPast = gunslinger;
             var me = PlayerSlots.Local;
@@ -225,11 +227,11 @@ namespace GungeonOnline.Game
         }
 
         /// <summary>This screen's Past owner beat the boss: tell every other screen.</summary>
-        public static void SendPastBossDown()
+        public static void SendPastBossDown(string boss)
         {
             if (!NetSession.Active) return;
-            var w = new WireWriter(8);
-            w.U8(MsgPastBoss);
+            var w = new WireWriter(64);
+            w.U8(MsgPastBoss); w.U8(0); w.Str(boss ?? "");
             NetSession.Instance.Node.Broadcast((byte)Channel.Control, w.ToArray(), Delivery.ReliableOrdered);
         }
 
@@ -374,7 +376,8 @@ namespace GungeonOnline.Game
                 if (NetSession.IsHost)
                     foreach (var other in NetSession.Instance.Node.Connections)
                         if (other != c) other.Send((byte)Channel.Control, data, Delivery.ReliableOrdered);
-                if (r.Remaining > 0 && r.U8() == 1) PastMode.ApplyEnding(); else PastMode.ApplyBossDown();
+                int kind = r.Remaining > 0 ? r.U8() : 0;
+                if (kind == 1) PastMode.ApplyEnding(); else PastMode.ApplyBossDown(r.Remaining > 0 ? r.Str() : "");
                 return;
             }
             if (type == MsgCustomRequest)

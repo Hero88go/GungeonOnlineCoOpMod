@@ -9,7 +9,7 @@ namespace GungeonOnline
     {
         public const string Guid = "gungeononline";
         public const string Name = "Enter The Gungeon Online Co-Op Mod";
-        public const string Version = "1.2.6";
+        public const string Version = "1.2.7";
 
         internal static ManualLogSource Log;
         internal static Plugin Instance;

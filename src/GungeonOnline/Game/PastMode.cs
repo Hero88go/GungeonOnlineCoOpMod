@@ -23,9 +23,15 @@ namespace GungeonOnline.Game
         public static int BossDownsSent, BossDownsApplied;
         static PlayerController lastShot; // the player the Ark's clock was last aimed at, on this screen
 
+        /// <summary>A character's Past is loading or loaded (set from the Past flags as the load starts). The Past's
+        /// scripts pick their hero and its enemies appear while the level is still loading, so Past mode must already
+        /// be on then: before, a guest also received the host's copies of the Past's enemies during the load (two of
+        /// each boss, the copy's intro failing every frame), and a guest-owned Past picked the wrong hero.</summary>
+        public static bool PastLevel;
+
         public static bool Active =>
-            Session.NetSession.Active && GameManager.HasInstance && !GameManager.Instance.IsLoadingLevel
-            && GameManager.Instance.CurrentLevelOverrideState == GameManager.LevelOverrideState.CHARACTER_PAST;
+            Session.NetSession.Active && GameManager.HasInstance && !SceneObjects.InBreach
+            && (PastLevel || GameManager.Instance.CurrentLevelOverrideState == GameManager.LevelOverrideState.CHARACTER_PAST);
 
         public static PlayerController Owner => OwnerSlot >= 0 ? PlayerSlots.ForSlot(OwnerSlot) : null;
 
@@ -137,19 +143,23 @@ namespace GungeonOnline.Game
             if (PlayerSlots.Local == null || PlayerSlots.SlotOf(PlayerSlots.Local) != OwnerSlot) return;
             BossDownsSent++;
             Plugin.Log.LogInfo("PAST boss down on the owner's screen: " + __instance.name);
-            RunSync.SendPastBossDown();
+            RunSync.SendPastBossDown(__instance.name);
         }
 
         /// <summary>Another screen: the owner beat the Past's boss. Ours falls too, so this screen reaches the ending.</summary>
-        public static void ApplyBossDown()
+        public static void ApplyBossDown(string boss)
         {
             if (!Active) return;
             BossDownsApplied++;
             int n = 0;
+            // Only that boss: a Past can have more than one (the Bullet's second boss comes after the first one falls).
+            bool named = false;
+            foreach (var hh in StaticReferenceManager.AllHealthHavers) if (hh && hh.IsBoss && hh.IsAlive && hh.name == boss) named = true;
             foreach (var hh in new List<HealthHaver>(StaticReferenceManager.AllHealthHavers))
-                if (hh && hh.IsBoss && hh.IsAlive)
+                if (hh && hh.IsBoss && hh.IsAlive && (!named || hh.name == boss))
                 {
-                    hh.ApplyDamage(1000000f, Vector2.zero, "past", CoreDamageTypes.None, DamageCategory.Unstoppable, true, null, true);
+                    hh.minimumHealth = 0f;
+                    hh.ApplyDamage(1000000f, Vector2.zero, "past", CoreDamageTypes.SpecialBossDamage, DamageCategory.Unstoppable, true, null, true);
                     n++;
                 }
             Plugin.Log.LogInfo($"PAST the owner beat the boss: {n} boss(es) here fall too");
@@ -281,6 +291,6 @@ namespace GungeonOnline.Game
             return null;
         }
 
-        public static void Reset() { OwnerSlot = -1; creditsHere = false; creditsForced = false; ShipPast = false; }
+        public static void Reset() { PastLevel = false; OwnerSlot = -1; creditsHere = false; creditsForced = false; ShipPast = false; }
     }
 }

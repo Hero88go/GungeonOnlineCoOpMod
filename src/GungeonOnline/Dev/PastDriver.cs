@@ -14,8 +14,8 @@ namespace GungeonOnline.Dev
     {
         static readonly bool Auto = System.Environment.GetEnvironmentVariable("GO_PAST_AUTO") == "1";
         static float killAt = float.TryParse(System.Environment.GetEnvironmentVariable("GO_PAST_KILL_AT"), out var k) ? k : -1f;
-        static float pastSince = -1f, nextPulse, nextLog, nextWalk;
-        static bool pulse, killed, sawBoss;
+        static float pastSince = -1f, nextPulse, nextLog, nextWalk, nextInteract, nextKill, nextClear;
+        static bool pulse, killed, sawBoss, guideAsked;
 
         public static void Install(Harmony h)
         {
@@ -33,9 +33,19 @@ namespace GungeonOnline.Dev
 
         static bool InPast => GameManager.HasInstance && GameManager.Instance.CurrentLevelOverrideState == GameManager.LevelOverrideState.CHARACTER_PAST && !GameManager.Instance.IsLoadingLevel;
 
+        /// <summary>The Bullet's Past: where the floor broke after its first boss, or null.</summary>
+        static Vector2? FindHole()
+        {
+            foreach (var b in Object.FindObjectsOfType<BulletPastRoomController>())
+                if (b.RoomIdentifier == BulletPastRoomController.BulletRoomCategory.ROOM_C && b.AgunimFlightCollider && b.AgunimFlightCollider.enabled
+                    && b.AgunimPostDeathTalker == null)
+                    return b.AgunimFlightCollider.UnitCenter;
+            return null;
+        }
+
         void Update()
         {
-            if (!InPast) { pastSince = -1f; killed = false; sawBoss = false; pulse = false; return; }
+            if (!InPast) { pastSince = -1f; killed = false; sawBoss = false; guideAsked = false; pulse = false; return; }
             float now = Time.realtimeSinceStartup;
             if (pastSince < 0f) { pastSince = now; Plugin.Log.LogInfo("PASTSTART " + UnityEngine.SceneManagement.SceneManager.GetActiveScene().name + " owner=" + Game.PastMode.OwnerSlot); }
             pulse = Auto && now >= nextPulse;
@@ -54,7 +64,15 @@ namespace GungeonOnline.Dev
                 foreach (var hh in StaticReferenceManager.AllHealthHavers) if (hh && hh.IsBoss && hh.IsAlive) bossUp = true;
                 if (bossUp) sawBoss = true;
                 if (car && car.Car && sawBoss && !bossUp) to = car.Car.Sprite.WorldCenter + new Vector2(0f, -0.5f);
-                else if (owner)
+                else if (owner && sawBoss && FindHole() is Vector2 hole && Vector2.Distance(me.CenterPosition, hole) > 1f)
+                    to = hole; // the Bullet's Past: down through the broken floor to the last room
+                else if (owner && Object.FindObjectOfType<RobotPastController>() is RobotPastController rpc && rpc.EmperorBot
+                         && me.CenterPosition.y < rpc.EmperorBot.transform.position.y - 12f)
+                    to = new Vector2(me.CenterPosition.x, rpc.EmperorBot.transform.position.y - 11f); // walk up to the Emperor
+                else if (owner && Object.FindObjectOfType<PastLabMarineController>() is PastLabMarineController plmc && plmc.LeftRedMarine
+                         && me.CenterPosition.y < plmc.LeftRedMarine.transform.position.y)
+                    to = new Vector2(me.CenterPosition.x, plmc.LeftRedMarine.transform.position.y + 1f); // walk past the red marines
+                else if (owner && !Object.FindObjectOfType<RobotPastController>() && !Object.FindObjectOfType<PastLabMarineController>() && !Object.FindObjectOfType<GuidePastController>())
                 {
                     foreach (var hh in StaticReferenceManager.AllHealthHavers)
                         if (hh && hh.IsBoss && hh.IsAlive && (!hh.gameObject.activeInHierarchy || !hh.aiActor || !hh.aiActor.HasBeenEngaged))
@@ -67,14 +85,46 @@ namespace GungeonOnline.Dev
                     me.WarpToPoint(to.Value, false, false);
                 }
             }
-            if (killAt >= 0 && !killed && owner && now - pastSince >= killAt && !GameManager.IsBossIntro)
+            // Test players cannot die in a Past (the bots stand in the fire); the story is what is tested.
+            if (Auto && me && me.healthHaver) me.healthHaver.PreventAllDamage = true;
+            // The Guide's boss starts when the hero examines the room's object: the hero's button, replayed everywhere.
+            if (Auto && now >= nextInteract)
             {
+                nextInteract = now + 3f;
+                var gpc = Object.FindObjectOfType<GuidePastController>();
+                var hero = Game.PastMode.Owner;
+                if (gpc && gpc.TargetInteractable && hero && !guideAsked)
+                {
+                    if (owner && Vector2.Distance(me.CenterPosition, gpc.TargetInteractable.transform.position) > 2.5f)
+                        me.WarpToPoint((Vector2)gpc.TargetInteractable.transform.position + new Vector2(0f, -1.5f), false, false);
+                    else if (Vector2.Distance(hero.CenterPosition, gpc.TargetInteractable.transform.position) < 3f)
+                    {
+                        guideAsked = true;
+                        Plugin.Log.LogInfo("PASTINTERACT the hero examines the Guide's object");
+                        gpc.TargetInteractable.Interact(hero);
+                    }
+                }
+            }
+            // The players' shooting, which the bots do not do here: ordinary enemies (waves) fall on every screen.
+            if (Auto && now - pastSince > 20f && now >= nextClear && !GameManager.IsBossIntro)
+            {
+                nextClear = now + 4f;
+                int n = 0;
+                foreach (var a in new List<AIActor>(StaticReferenceManager.AllEnemies))
+                    if (a && a.healthHaver && !a.healthHaver.IsBoss && a.healthHaver.IsAlive && a.gameObject.activeInHierarchy && a.HasBeenEngaged && a.CompanionOwner == null && !a.GetComponent<PlayerController>())
+                    { a.healthHaver.ApplyDamage(100000f, Vector2.zero, "test", CoreDamageTypes.None, DamageCategory.Unstoppable, true, null, true); n++; }
+                if (n > 0) Plugin.Log.LogInfo("PASTCLEAR " + n + " enemies");
+            }
+            if (killAt >= 0 && owner && now - pastSince >= killAt && now >= nextKill && !GameManager.IsBossIntro)
+            {
+                nextKill = now + 3f;
                 foreach (var hh in new List<HealthHaver>(StaticReferenceManager.AllHealthHavers))
                     if (hh && hh.IsBoss && hh.IsAlive && hh.IsVulnerable && hh.gameObject.activeInHierarchy && hh.aiActor && hh.aiActor.HasBeenEngaged)
                     {
                         killed = true;
-                        Plugin.Log.LogInfo("PASTKILL " + hh.name);
-                        hh.ApplyDamage(1000000f, Vector2.zero, "test", CoreDamageTypes.None, DamageCategory.Unstoppable, true, null, true);
+                        hh.minimumHealth = 0f;
+                        Plugin.Log.LogInfo("PASTKILL " + hh.name + " hp=" + hh.GetCurrentHealth());
+                        hh.ApplyDamage(1000000f, Vector2.zero, "test", CoreDamageTypes.SpecialBossDamage, DamageCategory.Unstoppable, true, null, true);
                     }
             }
             if (now >= nextLog)

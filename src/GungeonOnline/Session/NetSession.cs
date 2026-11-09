@@ -359,6 +359,16 @@ namespace GungeonOnline.Session
                     Plugin.Log.LogInfo("Join: no direct path to the host after " + (joinExtended ? "80" : "20") + " s; connecting through Steam");
                     return;
                 }
+                if (why == "no answer from host" && !joinExtended && steamHost != null)
+                {
+                    // A Steam join: Steam can take a while to find a route (or the host's game is still loading a big
+                    // modpack). Keep trying for another minute before giving up.
+                    joinExtended = true;
+                    node.Connect(steamHost, Now, 60);
+                    Toasts.Show("Still trying to reach your Steam friend...", 6f, true);
+                    Plugin.Log.LogInfo("Join: no answer over Steam yet, trying for another minute");
+                    return;
+                }
                 if (why == "no answer from host" && !joinExtended && steamHost == null && node.LastHost is IPEndPoint hostEp)
                 {
                     // Keep this same connection trying for another minute: the host's game can still open a path to us
@@ -375,7 +385,9 @@ namespace GungeonOnline.Session
                     Plugin.Log.LogInfo("Join: no answer yet, trying for another minute (reply code " + (InviteCodeText != null ? "copied" : "not ready") + ")");
                     return;
                 }
-                Toasts.Show(why == "no answer from host" ? "Could not reach the host. Check the invite code, or have your friend host instead." : why, 7f, true);
+                Toasts.Show(why != "no answer from host" ? why
+                    : steamHost != null ? "Could not reach your Steam friend. Check that they are hosting with the same mod version, or try an invite code."
+                    : "Could not reach the host. Check the invite code, or have your friend host instead.", 7f, true);
                 Leave(why);
             };
             node.JoinAttempt += (from, theirMod, refused) =>

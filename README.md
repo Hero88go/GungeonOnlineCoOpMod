@@ -82,7 +82,7 @@ Gungeon's co-op has always been couch co-op: one shared camera, and player two i
 
 ## Install
 
-Download the latest **`GungeonOnline-1.2.6.zip`** from [Releases](../../releases) and unzip it anywhere (right-click, Extract All). Close the game first. Then pick **either** way below. Everyone needs the same version.
+Download the latest **`GungeonOnline-1.2.7.zip`** from [Releases](../../releases) and unzip it anywhere (right-click, Extract All). Close the game first. Then pick **either** way below. Everyone needs the same version.
 
 ### Option A: the installer (easiest)
 
@@ -207,9 +207,9 @@ Your normal save is used and gets credit for runs you play online. Run backups g
 
 ## Status
 
-Version 1.2.6 beta. **Found a bug? Please [open an issue](../../issues)** and use *Send report* (Settings, Help and advanced) if you can. Every report helps.
+Version 1.2.7 beta. **Found a bug? Please [open an issue](../../issues)** and use *Send report* (Settings, Help and advanced) if you can. Every report helps.
 
-For r2modman, download **`GungeonOnline-1.2.6-r2modman.zip`** from Releases, then in r2modman pick Settings, Import local mod, and choose that zip. It uses the mod manager's BepInEx pack. When you join, the mod lists any mods that differ between you. Host and guest need matching mods and versions. ExpandTheGungeon 3.0.8 with MtG API 1.9.2 and BepInExPack_EtG 5.4.2101 has been tested across several floors. Other modpacks may still be incompatible; a different floor layout now returns the guest safely to the Breach with an explanation.
+For r2modman, download **`GungeonOnline-1.2.7-r2modman.zip`** from Releases, then in r2modman pick Settings, Import local mod, and choose that zip. It uses the mod manager's BepInEx pack. When you join, the mod lists any mods that differ between you. Host and guest need matching mods and versions. ExpandTheGungeon 3.0.8 with MtG API 1.9.2 and BepInExPack_EtG 5.4.2101 has been tested across several floors. Other modpacks may still be incompatible; a different floor layout now returns the guest safely to the Breach with an explanation.
 
 ## Settings
 
