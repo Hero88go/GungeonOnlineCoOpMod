@@ -5,6 +5,7 @@
 - Fixed: when a friend was the hero of their Past, their screen could pick the wrong hero, and friends' screens got a second, frozen copy of each Past boss.
 - When the hero beats a Past's boss, only that boss falls on the other screens. The Bullet's Past has a second boss after the first.
 - Fixed: the Bullet's final boss did not fall on friends' screens.
+- Fixed: a friend's screen could stay frozen in a boss intro when the hero's Past ended, instead of playing the ending.
 - Joining from a Steam invite keeps trying for another minute before giving up, and the message no longer mentions invite codes.
 
 ## 1.2.6

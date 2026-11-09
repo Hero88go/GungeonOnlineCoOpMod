@@ -197,10 +197,17 @@ namespace GungeonOnline.Game
 
         static System.Collections.IEnumerator EndingHere()
         {
-            yield return new WaitForSeconds(1.5f); // this screen's own story may be a moment behind and get there itself
+            // Real time: a boss intro still running on this screen stops game time, and a game-time wait never ended.
+            yield return new WaitForSecondsRealtime(1.5f); // this screen's own story may be a moment behind and get there itself
             var me = PlayerSlots.Local;
-            if (!Active || !me) yield break;
+            if (!Active || !me || creditsHere) yield break;
             foreach (var cam in UnityEngine.Object.FindObjectsOfType<BossKillCam>()) if (cam) cam.ForceCancelSequence();
+            // A boss intro left running here (this screen's story was behind the owner's) would hold time and input.
+            foreach (var intro in UnityEngine.Object.FindObjectsOfType<GenericIntroDoer>()) if (intro) intro.StopAllCoroutines();
+            GameManager.IsBossIntro = false;
+            GameManager.Instance.PreventPausing = false;
+            BraveTime.ClearAllMultipliers();
+            foreach (var p in GameManager.Instance.AllPlayers) if (p) p.ClearInputOverride("BossIntro");
             foreach (var p in GameManager.Instance.AllPlayers) if (p) p.CurrentInputState = PlayerInputState.NoInput;
             var ttcc = new TimeTubeCreditsController();
             Pixelator.Instance.FadeToColor(0.15f, Color.white, true, 0.15f);
