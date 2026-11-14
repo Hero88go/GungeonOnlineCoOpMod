@@ -59,6 +59,16 @@ namespace GungeonOnline.Session
         }
         int pendingRow = -1;
 
+        /// <summary>Harness (UI tour step "press"): picks the selected row, like pressing A.</summary>
+        public void PressForHarness()
+        {
+            if (sel >= 0 && sel < entries.Count && entries[sel].Enabled)
+            {
+                Plugin.Log.LogInfo("UITOUR press \"" + entries[sel].Label + "\"");
+                entries[sel].Do();
+            }
+        }
+
         /// <summary>Harness (GO_TYPE_AT): open the Join screen's code box, as if the player picked Type the code.</summary>
         public void StartTypingForTest() { Open(); Go(Screen.Join); typing = true; typedCode = ""; }
 
@@ -189,7 +199,19 @@ namespace GungeonOnline.Session
             return c != null && InviteCode.TryParse(c.Trim(), out _) ? c.Trim() : null;
         }
 
-        static bool InRun => GameManager.HasInstance && !Game.SceneObjects.InBreach && GameManager.Instance.Dungeon != null;
+        float ipCopiedUntil;
+
+        /// <summary>The host's own "ip:port" (just copied with Copy IP) is not a friend's reply code.</summary>
+        static bool OwnAddress(string text, NetSession s)
+        {
+            foreach (var e in LocalAddresses.Current) if (text == e.Ip + ":" + s.HostPort) return true;
+            return false;
+        }
+
+        /// <summary>Where the menu panel was last drawn (screen pixels), so messages can avoid covering it.</summary>
+        public static Rect PanelRect;
+
+        static bool InRun =>GameManager.HasInstance && !Game.SceneObjects.InBreach && GameManager.Instance.Dungeon != null;
 
         void Add(string label, Action a, bool enabled = true, Action<int> adjust = null) =>
             entries.Add(new Entry { Label = label, Do = a, Enabled = enabled, Adjust = adjust });
@@ -217,16 +239,30 @@ namespace GungeonOnline.Session
                     AddStyleRow();
                     AddCountRow();
                     Add("Copy code again", () => { if (s.InviteCodeText != null) { GUIUtility.systemCopyBuffer = s.InviteCodeText; Toasts.Show("Code copied"); } }, s.InviteCodeText != null);
+                    // VPN players (Radmin, Tailscale, ...) join with the host's VPN address instead of the code.
+                    var lan = LocalAddresses.Current;
+                    if (lan.Length > 0)
+                    {
+                        string addr = lan[0].Ip + ":" + s.HostPort;
+                        // Confirmed in the row itself: a message would land on this tall screen's buttons.
+                        bool justCopied = Time.unscaledTime < ipCopiedUntil;
+                        Add(justCopied ? "IP copied: " + addr : "Copy IP (" + lan[0].Kind + ")", () =>
+                        {
+                            GUIUtility.systemCopyBuffer = addr;
+                            ipCopiedUntil = Time.unscaledTime + 3f;
+                            Plugin.Log.LogInfo("Copied IP (" + lan[0].Kind + ")");
+                        });
+                    }
                     var reply = ClipboardCode();
                     Add("Let in friend",
                         () => { var rc = ClipboardCode(); if (rc != null) { s.LetIn(rc); Toasts.Show("Opening a path to your friend..."); } },
-                        reply != null && reply != s.InviteCodeText);
+                        reply != null && reply != s.InviteCodeText && !OwnAddress(reply, s));
                     Add("Done", () => Go(Screen.Session));
                     break;
                 case Screen.Join:
                     var code = ClipboardCode();
-                    Add(code != null ? "Join " + code : "Join (copy your friend's code first)", () => { var c = ClipboardCode(); if (c != null) s.Join(c); }, code != null);
-                    Add("Type the code", () => { typing = true; typedCode = ""; });
+                    Add(code != null ? "Join " + code : "Join (copy your friend's code or IP first)", () => { var c = ClipboardCode(); if (c != null) s.Join(c); }, code != null);
+                    Add("Type the code or IP", () => { typing = true; typedCode = ""; });
                     if (s.SteamReady) info = "On Steam, accept your friend's invite from Steam and you join by yourself.";
                     Add("Back", () => Go(Screen.Home));
                     break;
@@ -419,8 +455,10 @@ namespace GungeonOnline.Session
                 y += lineH * 1.5f;
                 GUI.Label(new Rect(x, y, w, lineH), s.InviteCodeText != null ? "Copied. Paste it to your friend." : "Getting your code...", MenuStyle.Small);
                 y += lineH * 0.8f;
-                GUI.Label(new Rect(x, y, w, lineH), RouterLine(s), MenuStyle.Small);
-                y += lineH;
+                string note = HostNote(s);
+                int noteLines = note.Split('\n').Length;
+                GUI.Label(new Rect(x, y, w, lineH * noteLines), note, MenuStyle.Small);
+                y += lineH * noteLines;
             }
             if (screen == Screen.Session) y = DrawPlayers(s, x, y, w, lineH);
             if (!string.IsNullOrEmpty(info))
@@ -530,7 +568,7 @@ namespace GungeonOnline.Session
 
             float row = 17 * px, small = 11 * px;
             // Width first (it only depends on the rows), then every text block is wrapped to fit inside it.
-            string router = screen == Screen.Host ? RouterLine(s) : "";
+            string router = screen == Screen.Host ? HostNote(s) : "";
             float widest = GungeonUI.Measure(Title(), GungeonUI.Font.Title).x;
             foreach (var e0 in entries) widest = Mathf.Max(widest, GungeonUI.Measure(e0.Label, GungeonUI.Font.Menu).x + 30 * px);
             if (screen == Screen.Host) widest = Mathf.Max(widest, GungeonUI.Measure(s.InviteCodeText ?? "", GungeonUI.Font.Menu, 1.5f).x);
@@ -549,6 +587,7 @@ namespace GungeonOnline.Session
             while (contentH + 20 * px > sh - 8 * px && row > 12 * px) { row -= px; contentH = ContentH(row); }
             float h = contentH + 20 * px;
             float x = Mathf.Round((sw - w) / 2f), y = Mathf.Round((sh - h) / 2f);
+            PanelRect = new Rect(x - 6 * px, y - 14 * px, w + 12 * px, h + 20 * px); // includes the widest frame look
             GungeonUI.Fill(new Rect(x + 2 * px, y + 2 * px, w - 4 * px, h - 4 * px), 1f);
             switch (NetConfig.LookFrame.Value)
             {
@@ -646,7 +685,7 @@ namespace GungeonOnline.Session
                 bool blink = Mathf.Repeat(Time.unscaledTime, 1f) < 0.55f;
                 GungeonUI.TextCentered((typedCode ?? "") + (blink ? "_" : " "), cx, cy, GungeonUI.Font.Menu, GungeonUI.Gold);
                 cy += row + 2 * px;
-                GungeonUI.TextCentered("Type the code and press Enter. Esc cancels.", cx, cy, GungeonUI.Font.Small, Dim);
+                GungeonUI.TextCentered("Type the code or ip:port and press Enter. Esc cancels.", cx, cy, GungeonUI.Font.Small, Dim);
             }
 
             GungeonUI.TextCentered("A choose    B back    < > change", cx, y + h - 14 * px, GungeonUI.Font.Small, Dim);
@@ -663,7 +702,7 @@ namespace GungeonOnline.Session
                 typing = false;
                 if (Dev.DevEnv.IsHarness) Plugin.Log.LogInfo($"CODE entered \"{typedCode}\" valid={InviteCode.TryParse(typedCode, out _)}");
                 if (InviteCode.TryParse(typedCode, out _)) s.Join(typedCode);
-                else Toasts.Show("That code is not valid. Codes look like ABCD-EFGH-JKLM.", 4f, true);
+                else Toasts.Show("That code is not valid. Type a code like ABCD-EFGH-JKLM or an IP like 26.1.2.3:47624.", 5f, true);
                 return true;
             }
             if (e.keyCode == KeyCode.Escape) { e.Use(); typing = false; return true; }
@@ -731,14 +770,17 @@ namespace GungeonOnline.Session
         static List<string> Wrap(string text, float width)
         {
             var lines = new List<string>();
-            string line = "";
-            foreach (var word in text.Split(' '))
+            foreach (var para in text.Split('\n'))
             {
-                string next = line.Length == 0 ? word : line + " " + word;
-                if (line.Length > 0 && GungeonUI.Measure(next, GungeonUI.Font.Small).x > width) { lines.Add(line); line = word; }
-                else line = next;
+                string line = "";
+                foreach (var word in para.Split(' '))
+                {
+                    string next = line.Length == 0 ? word : line + " " + word;
+                    if (line.Length > 0 && GungeonUI.Measure(next, GungeonUI.Font.Small).x > width) { lines.Add(line); line = word; }
+                    else line = next;
+                }
+                if (line.Length > 0) lines.Add(line);
             }
-            if (line.Length > 0) lines.Add(line);
             return lines;
         }
 
@@ -853,6 +895,13 @@ namespace GungeonOnline.Session
             col.a = alpha;
             if (corner) GungeonUI.Text(text, new Vector2(8 * GungeonUI.Px, y), GungeonUI.Font.Small, col, scale);
             else GungeonUI.TextCentered(text, UnityEngine.Screen.width / 2f, y, GungeonUI.Font.Small, col, scale);
+        }
+
+        /// <summary>Under the invite code: the router state, then the host's LAN/VPN addresses for "ip:port" joins.</summary>
+        static string HostNote(NetSession s)
+        {
+            string router = RouterLine(s), ip = LocalAddresses.HostLine(s.HostPort);
+            return router.Length == 0 ? ip : ip.Length == 0 ? router : router + "\n" + ip;
         }
 
         static string RouterLine(NetSession s)

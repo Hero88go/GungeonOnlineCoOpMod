@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.8
+
+- Joining by IP is easier to find. The Host screen lists the host's VPN (Radmin VPN, Hamachi, Tailscale, ZeroTier) and home network addresses with the port, and *Copy IP* copies the first one. Join says it takes a code or an IP, and typing `ip:port` works as before.
+- Reports say which kinds of network address the host had (for example Radmin VPN), never the addresses themselves.
+- Messages that pop up while the online menu is open no longer land on its buttons.
+
 ## 1.2.7
 
 - Fixed: when a friend was the hero of their Past, their screen could pick the wrong hero, and friends' screens got a second, frozen copy of each Past boss.

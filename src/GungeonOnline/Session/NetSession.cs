@@ -43,6 +43,8 @@ namespace GungeonOnline.Session
         UpnpMapper upnp;
         public string Status = "Offline";
         public string InviteCodeText;
+        /// <summary>UDP port this game hosts on (shown with the host's LAN/VPN addresses for "ip:port" joins).</summary>
+        public int HostPort;
         public string LastError;
         readonly List<KeyValuePair<IPEndPoint, double>> punchTargets = new List<KeyValuePair<IPEndPoint, double>>();
         double nextStats;
@@ -212,6 +214,8 @@ namespace GungeonOnline.Session
             {
                 int port = Dev.DevEnv.PortOverride ?? NetConfig.Port.Value;
                 node = new NetNode(MakeSocket(port, withSteam: true), true, NetConfig.MaxPlayers.Value, MakeHandshake());
+                HostPort = port;
+                LocalAddresses.Refresh();
                 node.SlotForPlayer = pid => !string.IsNullOrEmpty(pid) && KnownPlayers.TryGetValue(pid, out var known) ? known : -1;
                 steam?.Host(NetConfig.MaxPlayers.Value);
                 Wire();

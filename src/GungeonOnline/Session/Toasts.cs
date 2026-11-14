@@ -75,9 +75,21 @@ namespace GungeonOnline.Session
             float y = 30 * px;
             if (atBottom)
             {
-                y = Screen.height - 34 * px * list.Count - 10 * px;
+                float need = 34 * px * list.Count;
+                y = Screen.height - need - 10 * px;
+                // A tall menu page (Host with VPN addresses) reaches the bottom. Then go above the panel if that fits;
+                // otherwise the newest message covers the panel's title strip (above the code), never its buttons.
+                var panel = OnlineMenu.PanelRect;
+                bool overTitle = false;
+                if (panel.height > 0 && y < panel.yMax)
+                {
+                    if (panel.yMax + need <= Screen.height) y = panel.yMax;
+                    else if (panel.yMin - need >= 0) y = panel.yMin - need;
+                    else { y = panel.yMin + 12 * px; overTitle = true; }
+                }
                 foreach (var t in list)
                 {
+                    if (overTitle && t != list[list.Count - 1]) continue;
                     float a = Mathf.Min(1f, GungeonUI.Ease((t.Until - now) / 0.4f));
                     DrawStyled(t.Text, y, a, false, t.Warn);
                     y += 29 * px;

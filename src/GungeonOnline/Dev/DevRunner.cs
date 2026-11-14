@@ -109,6 +109,8 @@ namespace GungeonOnline.Dev
                     tourStep = step + 1;
                     if (what == "pause") { menu?.Close(); GameManager.Instance.Pause(); }
                     else if (what == "close") { menu?.Close(); GameManager.Instance.Unpause(); }
+                    else if (what == "press") menu?.PressForHarness(); // picks the selected row, screenshot shows the result
+                    else if (what == "toast") Session.Toasts.Show("Test message while the menu is open.", 3f); // where messages land
                     else
                     {
                         var p = what.Split(':'); menu?.ShowForHarness(p[0], int.Parse(p[1]));
