@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.2.10
+
+- Fixed for controller players: after a character switch, the game could hand your controller to your friend's character on your screen, and theirs to you (shots fired both guns, Start opened and closed the pause menu at once, a player could not move). Each player now always keeps their own controller.
+- Fixed: a player could start a floor with their gun still hidden from the Breach. It is given back when the floor starts.
+
 ## 1.2.9
 
 - New: **GungeonOnline-Setup.exe**. Download it, double-click, press Install. It finds the game on Steam, GOG and Epic by itself, and the same file uninstalls. The zip is still there for manual installs and r2modman.
