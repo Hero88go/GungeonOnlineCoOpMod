@@ -391,7 +391,7 @@ namespace GungeonOnline.Session
                 }
                 Toasts.Show(why != "no answer from host" ? why
                     : steamHost != null ? "Could not reach your Steam friend. Check that they are hosting with the same mod version, or try an invite code."
-                    : "Could not reach the host. Check the invite code, or have your friend host instead.", 7f, true);
+                    : "Could not reach the host. Check the code, or have your friend host instead. If neither works, join the same VPN (Radmin VPN, Tailscale, ZeroTier) and use the IP on the host's Host screen.", 12f, true);
                 Leave(why);
             };
             node.JoinAttempt += (from, theirMod, refused) =>

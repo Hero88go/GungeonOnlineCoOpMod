@@ -82,27 +82,31 @@ Gungeon's co-op has always been couch co-op: one shared camera, and player two i
 
 ## Install
 
-Download the latest **`GungeonOnline-1.2.8.zip`** from [Releases](../../releases) and unzip it anywhere (right-click, Extract All). Close the game first. Then pick **either** way below. Everyone needs the same version.
+Close the game first. Everyone needs the same version.
 
-### Option A: the installer (easiest)
+### Option A: one click (easiest)
 
-1. Double-click **`Install Gungeon Online.bat`**.
-2. It finds Enter the Gungeon by itself (every Steam library, GOG, Epic) and installs the mod. If it can't find the game, it asks you to pick the folder with `EtG.exe`.
+1. Download **[`GungeonOnline-Setup.exe`](../../releases/latest/download/GungeonOnline-Setup.exe)** and double-click it.
+2. It finds Enter the Gungeon by itself (every Steam library, GOG, Epic) and ticks it. Press **Install**. If your game isn't listed, pick the folder with `EtG.exe`.
 3. Start the game. Done.
 
-If Windows shows **"Windows protected your PC"**, click **More info**, then **Run anyway**. That warning appears for any downloaded .bat file. If you'd rather not run it, use Option B; it does exactly the same thing.
+If Windows shows **"Windows protected your PC"**, click **More info**, then **Run anyway**. That warning appears for any small program that isn't from a big publisher. If you'd rather not run it, use the zip below.
 
-To remove the mod later, double-click **`Uninstall Gungeon Online.bat`**.
+To remove the mod later, run the same file and press **Uninstall**.
 
-**Updating:** download the new zip and do the same thing again over your old install. Your settings and saved runs are kept. The game tells you when a new version is out.
+**Updating:** when a new version is out, the game says so once at startup, and **Play Online** shows **Update to x.y.z**. Updating is your choice: pick **Update now** (it downloads the new version, checks it, and offers **Restart game**), **Not now**, or **Skip this version**. It never updates during an online game. You can also run the newest Setup.exe again. Your settings and saved runs are kept either way.
 
-### Option B: copy the files yourself
+### Option B: the zip
+
+Download **`GungeonOnline-1.2.9.zip`** from [Releases](../../releases) and unzip it anywhere (right-click, Extract All). Double-click **`Install Gungeon Online.bat`**: it does the same thing as Setup.exe. **`Uninstall Gungeon Online.bat`** removes it.
+
+### Option C: copy the files yourself
 
 1. Open your game folder, the one with `EtG.exe`:
    - **Steam:** right-click Enter the Gungeon in your library, **Manage**, **Browse local files**.
    - **GOG Galaxy:** the game, the settings icon, **Manage installation**, **Show folder**.
    - **Epic:** usually `C:\Program Files\Epic Games\EnterTheGungeon`.
-2. Open the unzipped download and go into the **`files`** folder.
+2. Open the unzipped zip (Option B) and go into the **`files`** folder.
 3. Select everything in it (`BepInEx`, `winhttp.dll`, `doorstop_config.ini`, `.doorstop_version`) and copy it into the game folder. If Windows asks to replace files, say yes.
 4. Start the game. Done.
 
@@ -200,16 +204,16 @@ Your normal save is used and gets credit for runs you play online. Run backups g
 ## Troubleshooting
 
 - **No PLAY ONLINE in the pause menu:** the files went into the wrong folder. They must sit right next to `EtG.exe` (you should see `winhttp.dll` and the `BepInEx` folder beside it). Steam players: check you copied into the folder that **Browse local files** opened. On Linux or Steam Deck, also set the Proton launch option from the FAQ above.
-- **The installer window closes or does nothing:** use Option B, it does the same thing.
+- **The installer window closes or does nothing:** use Option B or C, they do the same thing.
 - **"Your friend has a different version":** both players need the same download. Get the latest from [Releases](../../releases).
 - **Can't connect:** give it a few seconds, the mod opens a path through the host's router by itself. If you are both on Steam and it still fails, the join switches to Steam by itself. Otherwise the joiner's *reply code* is copied for them: they send it to the host, who picks *Let in friend*. Swapping who hosts also often works. If both routers are strict, both of you join the same Radmin VPN, Tailscale or ZeroTier network; the host's Host screen shows their VPN `ip:port` (*Copy IP*), and the friend pastes or types it in **Join**. Default port: UDP 47624. The host's Windows Firewall must allow Enter the Gungeon.
 - Anything else: [open an issue](../../issues) and use *Send report* (Settings, Help and advanced).
 
 ## Status
 
-Version 1.2.8 beta. **Found a bug? Please [open an issue](../../issues)** and use *Send report* (Settings, Help and advanced) if you can. Every report helps.
+Version 1.2.9 beta. **Found a bug? Please [open an issue](../../issues)** and use *Send report* (Settings, Help and advanced) if you can. Every report helps.
 
-For r2modman, download **`GungeonOnline-1.2.8-r2modman.zip`** from Releases, then in r2modman pick Settings, Import local mod, and choose that zip. It uses the mod manager's BepInEx pack. When you join, the mod lists any mods that differ between you. Host and guest need matching mods and versions. ExpandTheGungeon 3.0.8 with MtG API 1.9.2 and BepInExPack_EtG 5.4.2101 has been tested across several floors. Other modpacks may still be incompatible; a different floor layout now returns the guest safely to the Breach with an explanation.
+For r2modman, download **`GungeonOnline-1.2.9-r2modman.zip`** from Releases, then in r2modman pick Settings, Import local mod, and choose that zip. It uses the mod manager's BepInEx pack. When you join, the mod lists any mods that differ between you. Host and guest need matching mods and versions. ExpandTheGungeon 3.0.8 with MtG API 1.9.2 and BepInExPack_EtG 5.4.2101 has been tested across several floors. Other modpacks may still be incompatible; a different floor layout now returns the guest safely to the Breach with an explanation.
 
 ## Settings
 

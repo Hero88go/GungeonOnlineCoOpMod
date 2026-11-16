@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.9
+
+- New: **GungeonOnline-Setup.exe**. Download it, double-click, press Install. It finds the game on Steam, GOG and Epic by itself, and the same file uninstalls. The zip is still there for manual installs and r2modman.
+- New: updating from inside the game, always optional. When a new version is out, Play Online shows *Update to x.y.z*: *Update now* downloads it, checks it, and offers *Restart game*; *Not now* and *Skip this version* leave everything as it is. Never during an online game. Installs from r2modman only get the notice.
+- When a join can't reach the host, the message now mentions the VPN route (Radmin VPN, Tailscale, ZeroTier, with the IP from the host's Host screen).
+
 ## 1.2.8
 
 - Joining by IP is easier to find. The Host screen lists the host's VPN (Radmin VPN, Hamachi, Tailscale, ZeroTier) and home network addresses with the port, and *Copy IP* copies the first one. Join says it takes a code or an IP, and typing `ip:port` works as before.

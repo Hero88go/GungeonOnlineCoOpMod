@@ -34,6 +34,7 @@ namespace GungeonOnline.Session
         public static ConfigEntry<string> LastJoin;
         public static ConfigEntry<bool> WelcomeShown;
         public static ConfigEntry<bool> CheckUpdates;
+        public static ConfigEntry<string> SkipVersion;
 
         public static void Bind(ConfigFile c)
         {
@@ -107,6 +108,7 @@ namespace GungeonOnline.Session
             LastJoin = c.Bind("Internal", "LastJoin", "", "Do not edit. The last game you joined, for Rejoin.");
             WelcomeShown = c.Bind("Internal", "WelcomeShown", false, "Do not edit.");
             CheckUpdates = c.Bind("General", "CheckForUpdates", true, "Once per launch, ask GitHub if a newer version is out and say so.");
+            SkipVersion = c.Bind("Internal", "SkipUpdateVersion", "", "Do not edit. A version you chose to skip: no message about it at startup.");
         }
     }
 }

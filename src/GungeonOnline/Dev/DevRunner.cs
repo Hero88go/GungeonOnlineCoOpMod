@@ -66,9 +66,11 @@ namespace GungeonOnline.Dev
         void DoorTest(float t)
         {
             if (doorStep >= 2 || System.Environment.GetEnvironmentVariable("GO_DOOR_TEST") != "1") return;
-            if (!Game.SceneObjects.InBreach || GameManager.Instance.AllPlayers.Length < 2 || Game.PlayerSlots.Local == null) return;
+            // GO_UI_TOUR_SOLO=1: one game, not online (screens that only exist offline, like Update).
+            bool solo = System.Environment.GetEnvironmentVariable("GO_UI_TOUR_SOLO") == "1";
+            if (!Game.SceneObjects.InBreach || (!solo && (GameManager.Instance.AllPlayers.Length < 2 || Game.PlayerSlots.Local == null))) return;
             if (doorSince < 0) doorSince = t;
-            bool host = Session.NetSession.IsHost;
+            bool host = Session.NetSession.IsHost || solo;
             float due = host ? 12f : 6f;
             if (t - doorSince < due) return;
             doorStep = 2;
@@ -87,11 +89,13 @@ namespace GungeonOnline.Dev
         void UiTour(float t)
         {
             if (tourStep >= 99 || System.Environment.GetEnvironmentVariable("GO_UI_TOUR") != "1") return;
-            if (!Game.SceneObjects.InBreach || GameManager.Instance.AllPlayers.Length < 2 || Game.PlayerSlots.Local == null) return;
+            // GO_UI_TOUR_SOLO=1: one game, not online (screens that only exist offline, like Update).
+            bool solo = System.Environment.GetEnvironmentVariable("GO_UI_TOUR_SOLO") == "1";
+            if (!Game.SceneObjects.InBreach || (!solo && (GameManager.Instance.AllPlayers.Length < 2 || Game.PlayerSlots.Local == null))) return;
             if (tourT0 < 0) tourT0 = t + 3f;
             float g = t - tourT0;
             var menu = Session.OnlineMenu.Instance;
-            bool host = Session.NetSession.IsHost;
+            bool host = Session.NetSession.IsHost || solo;
             string[] plan = host
                 ? new[] { "Home:0", "Host:0", "Session:0", "Settings:3", "Settings:0", "pause", "close" }
                 : new[] { "Join:0", "Session:0", "Settings:4", "close", "close", "close", "close" };
@@ -413,7 +417,9 @@ namespace GungeonOnline.Dev
                 }
                 return;
             }
-            if (!Game.SceneObjects.InBreach || GameManager.Instance.AllPlayers.Length < 2 || Game.PlayerSlots.Local == null) return;
+            // GO_UI_TOUR_SOLO=1: one game, not online (screens that only exist offline, like Update).
+            bool solo = System.Environment.GetEnvironmentVariable("GO_UI_TOUR_SOLO") == "1";
+            if (!Game.SceneObjects.InBreach || (!solo && (GameManager.Instance.AllPlayers.Length < 2 || Game.PlayerSlots.Local == null))) return;
             if (swapSince < 0) swapSince = t;
             if (t - swapSince < 6f) return;
             FoyerGungeonDoor door = null;

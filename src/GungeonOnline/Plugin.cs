@@ -2,6 +2,10 @@ using BepInEx;
 using BepInEx.Logging;
 using HarmonyLib;
 
+// The installer reads this to show which version a game folder has.
+[assembly: System.Reflection.AssemblyVersion(GungeonOnline.Plugin.Version)]
+[assembly: System.Reflection.AssemblyTitle(GungeonOnline.Plugin.Name)]
+
 namespace GungeonOnline
 {
     [BepInPlugin(Guid, Name, Version)]
@@ -9,7 +13,7 @@ namespace GungeonOnline
     {
         public const string Guid = "gungeononline";
         public const string Name = "Enter The Gungeon Online Co-Op Mod";
-        public const string Version = "1.2.8";
+        public const string Version = "1.2.9";
 
         internal static ManualLogSource Log;
         internal static Plugin Instance;

@@ -16,7 +16,7 @@ namespace GungeonOnline.Session
         public static OnlineMenu Instance { get; private set; }
         public static bool IsOpen => Instance != null && Instance.open;
 
-        enum Screen { Home, Host, Join, Session, Settings, ConfirmLeave, SetGame, SetFriend, SetDisplay, SetHelp, SaveSlots, ResumeSlots }
+        enum Screen { Home, Host, Join, Session, Settings, ConfirmLeave, SetGame, SetFriend, SetDisplay, SetHelp, SaveSlots, ResumeSlots, Update }
 
         sealed class Entry
         {
@@ -186,6 +186,7 @@ namespace GungeonOnline.Session
                 case Screen.ConfirmLeave: case Screen.SaveSlots: Go(Screen.Session); break;
                 case Screen.ResumeSlots: Go(Screen.Home); break;
                 case Screen.SetGame: case Screen.SetFriend: case Screen.SetDisplay: case Screen.SetHelp: Go(Screen.Settings); break;
+                case Screen.Update: Go(Screen.Home); break;
                 default: Go(NetSession.Active ? Screen.Session : Screen.Home); break;
             }
         }
@@ -200,6 +201,41 @@ namespace GungeonOnline.Session
         }
 
         float ipCopiedUntil;
+
+        /// <summary>The Update page. Nothing changes until the player picks Update now; every other row leaves things as they are.</summary>
+        void UpdateRows()
+        {
+            switch (UpdateCheck.Status)
+            {
+                case UpdateCheck.State.Downloading:
+                    info = "Downloading " + UpdateCheck.Latest + "... " + Mathf.RoundToInt(UpdateCheck.Progress * 100f) + "%";
+                    Add("Back", () => Go(Screen.Home));
+                    break;
+                case UpdateCheck.State.Ready:
+                    info = UpdateCheck.Message;
+                    Add("Restart game now", UpdateCheck.Restart);
+                    Add("Later", () => Go(Screen.Home));
+                    break;
+                case UpdateCheck.State.Failed:
+                    info = UpdateCheck.Message + " Your current version is unchanged.";
+                    Add("Try again", () => Plugin.Instance.StartCoroutine(UpdateCheck.Install()));
+                    Add("Open download page", UpdateCheck.OpenPage);
+                    Add("Back", () => Go(Screen.Home));
+                    break;
+                case UpdateCheck.State.None:
+                    info = "You have the latest version (" + Plugin.Version + ").";
+                    Add("Back", () => Go(Screen.Home));
+                    break;
+                default:
+                    info = "Version " + UpdateCheck.Latest + " is out (you have " + Plugin.Version + "). Updating is optional: friends playing together need the same version.";
+                    if (UpdateCheck.Offer) Add("Update now", () => Plugin.Instance.StartCoroutine(UpdateCheck.Install()), !NetSession.Active);
+                    else Add("Open download page", UpdateCheck.OpenPage);
+                    if (UpdateCheck.Offer) Add("What's new (opens the release page)", UpdateCheck.OpenPage);
+                    Add("Not now", () => Go(Screen.Home));
+                    Add("Skip this version", () => { UpdateCheck.Skip(); Go(Screen.Home); });
+                    break;
+            }
+        }
 
         /// <summary>The host's own "ip:port" (just copied with Copy IP) is not a friend's reply code.</summary>
         static bool OwnAddress(string text, NetSession s)
@@ -226,6 +262,8 @@ namespace GungeonOnline.Session
             switch (screen)
             {
                 case Screen.Home:
+                    // Optional: shown while a newer version is out, never forced (Not now / Skip this version).
+                    if ((UpdateCheck.Offer && NetConfig.SkipVersion.Value != UpdateCheck.Latest) || UpdateCheck.Status == UpdateCheck.State.Ready) Add(UpdateCheck.Status == UpdateCheck.State.Ready ? "Updated: restart to use " + UpdateCheck.Latest : "Update to " + UpdateCheck.Latest, () => Go(Screen.Update));
                     if (RunBackup.AnySlotUsable) Add("Resume saved run", () => Go(Screen.ResumeSlots));
                     if (!string.IsNullOrEmpty(NetConfig.LastJoin.Value)) Add("Rejoin last game", () => { s.RejoinLast(); Go(Screen.Session); });
                     Add("Host", () => { s.Host(); Go(Screen.Host); });
@@ -300,6 +338,9 @@ namespace GungeonOnline.Session
                         });
                     }
                     Add("Back", () => Go(Screen.Session));
+                    break;
+                case Screen.Update:
+                    UpdateRows();
                     break;
                 case Screen.ResumeSlots:
                     info = "Autosaves: the newest save of each of your last runs (saved every minute and every floor).";
@@ -382,6 +423,8 @@ namespace GungeonOnline.Session
                     Add("Send report", () => Reports.Save());
                     Add("Open reports folder", () => Reports.OpenFolder());
                     Add("Check for updates: " + (NetConfig.CheckUpdates.Value ? "On" : "Off"), () => NetConfig.CheckUpdates.Value = !NetConfig.CheckUpdates.Value);
+                    if (UpdateCheck.Status != UpdateCheck.State.None && !NetSession.Active)
+                        Add(UpdateCheck.Managed ? "Version " + UpdateCheck.Latest + " is out (mod manager)" : "Update to " + UpdateCheck.Latest, () => { if (!UpdateCheck.Managed) Go(Screen.Update); }, !UpdateCheck.Managed);
                     int sm = NetConfig.SmoothingMs.Value;
                     Add("Friend smoothing: " + (sm < 0 ? "Auto" : sm + " ms"), null, true,
                         d => NetConfig.SmoothingMs.Value = Mathf.Clamp(sm < 0 && d > 0 ? 0 : sm + d * 5, -1, 100));
@@ -425,6 +468,7 @@ namespace GungeonOnline.Session
                 case Screen.ConfirmLeave: return "Leave?";
                 case Screen.SaveSlots: return "Save run";
                 case Screen.ResumeSlots: return "Resume a run";
+                case Screen.Update: return "Update";
                 default: return "Online Co-Op";
             }
         }
