@@ -132,6 +132,25 @@ namespace GungeonOnline.Game
             Plugin.Log.LogInfo("PlayerSlots: second player pointed back at the live copy before the floor arrival");
         }
 
+        /// <summary>The Breach hides every player's gun and gives them back when you leave it. A copy made in the Breach
+        /// after that point (a late character switch) kept its gun hidden on later floors. On a real floor, nobody
+        /// is meant to be without a gun: give it back.</summary>
+        public static System.Collections.IEnumerator GunsBackAfterLoad()
+        {
+            while (GameManager.HasInstance && GameManager.Instance.IsLoadingLevel) yield return null;
+            for (int i = 0; i < 30; i++) yield return null;
+            if (!Session.NetSession.Active || !GameManager.HasInstance || Game.SceneObjects.InBreach) yield break;
+            foreach (var p in GameManager.Instance.AllPlayers)
+            {
+                if (!p || p.inventory == null || !p.inventory.ForceNoGun) continue;
+                p.inventory.ForceNoGun = false;
+                if (p.CurrentGun) p.CurrentGun.gameObject.SetActive(true);
+                p.ProcessHandAttachment();
+                p.ClearOverrideShader();
+                Plugin.Log.LogWarning($"PlayerSlots: slot {SlotOf(p)} still had its gun hidden from the Breach; gave it back");
+            }
+        }
+
         /// <summary>The game's second player is the remote with the lowest id that is still here.</summary>
         static void RepointSecondary()
         {

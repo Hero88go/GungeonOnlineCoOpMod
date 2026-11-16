@@ -48,7 +48,7 @@ namespace GungeonOnline.Game
             return true;
         }
 
-        static void LevelLoadedPrefix() => PlayerSlots.EnsureSecondary();
+        static void LevelLoadedPrefix() { PlayerSlots.EnsureSecondary(); if (Plugin.Instance != null) Plugin.Instance.StartCoroutine(PlayerSlots.GunsBackAfterLoad()); }
 
         static System.Exception LevelLoadedFinalizer(PlayerController __instance, System.Exception __exception)
         {
