@@ -372,6 +372,9 @@ namespace GungeonOnline.Replication
             foreach (var ch in StaticReferenceManager.AllChests)
             {
                 if (!ch) continue;
+                // A chest the host can't see yet (inactive, or hidden until it spawns in) is announced once it shows:
+                // a guest must never get a chest the host doesn't have on screen (player report: key spent, nothing inside).
+                if (!hostChests.ContainsValue(ch) && !Shown(ch)) continue;
                 if (!hostChests.ContainsValue(ch))
                 {
                     uint id = nextId++;
@@ -444,7 +447,13 @@ namespace GungeonOnline.Replication
                         {
                             uint id = r.U32();
                             var player = PlayerSlots.ForSlot(c.Slot);
-                            if (hostChests.TryGetValue(id, out var ch) && ch && player) { scope = false; ch.Interact(player); }
+                            if (!hostChests.TryGetValue(id, out var ch) || !ch || !player) { Plugin.Log.LogWarning($"Chest request {id} from slot {c.Slot}: no such chest on the host"); break; }
+                            string state = $"{PrefabName(ch.name)} at {(Vector2)ch.transform.position} shown={Shown(ch)} open={ch.IsOpen} locked={ch.IsLocked} sealed={ch.IsSealed} unopenable={ch.TemporarilyUnopenable} keys={player.carriedConsumables.KeyBullets}";
+                            // Never take a key for a chest the host can't open right now; the guest keeps its key.
+                            if (!Shown(ch) || ch.TemporarilyUnopenable || ch.IsOpen) { Plugin.Log.LogWarning($"Chest request {id} from slot {c.Slot} refused: {state}"); break; }
+                            scope = false;
+                            ch.Interact(player);
+                            Plugin.Log.LogInfo($"Chest request {id} from slot {c.Slot}: {state} -> open={ch.IsOpen} keys={player.carriedConsumables.KeyBullets}");
                             break;
                         }
                     case EvPickup when !NetSession.IsHost:
@@ -513,8 +522,10 @@ namespace GungeonOnline.Replication
                                 Destroy(ch.gameObject);
                                 ch = null;
                             }
+                            bool reused = ch != null;
                             ch = ch ?? SpawnChest(name, pos);
-                            if (ch == null) break;
+                            if (ch == null) { Plugin.Log.LogWarning($"Chest {id} {name} at {pos}: could not place"); break; }
+                            Plugin.Log.LogInfo($"Chest {id} {name} at {pos}: {(reused ? "matched my own" : "spawned a copy")} open={open} locked={locked}");
                             ConfigureChest(ch, rainbow, locked);
                             clientChests[id] = ch;
                             chestIdByInstance[ch.GetInstanceID()] = id;
@@ -550,6 +561,9 @@ namespace GungeonOnline.Replication
             var room = pos.GetAbsoluteRoom();
             if (po is IPlayerInteractable ia && room != null) room.RegisterInteractable(ia);
         }
+
+        /// <summary>The chest is on the host's screen: active and drawn.</summary>
+        static bool Shown(Chest ch) => ch && ch.gameObject.activeInHierarchy && ch.renderer && ch.renderer.enabled;
 
         static Chest NearestChest(Vector2 pos)
         {

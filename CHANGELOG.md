@@ -5,6 +5,8 @@
 - New: **GungeonOnline-Setup.exe**. Download it, double-click, press Install. It finds the game on Steam, GOG and Epic by itself, and the same file uninstalls. The zip is still there for manual installs and r2modman.
 - New: updating from inside the game, always optional. When a new version is out, Play Online shows *Update to x.y.z*: *Update now* downloads it, checks it, and offers *Restart game*; *Not now* and *Skip this version* leave everything as it is. Never during an online game. Installs from r2modman only get the notice.
 - When a join can't reach the host, the message now mentions the VPN route (Radmin VPN, Tailscale, ZeroTier, with the IP from the host's Host screen).
+- Fixed: a guest could see a chest the host didn't have on screen, and spending a key on it gave nothing. The host now only shares chests that are shown, and never takes a key for a chest it can't open.
+- Reports now include the previous game launch too, so a report sent after restarting the game still has the session that went wrong.
 
 ## 1.2.8
 

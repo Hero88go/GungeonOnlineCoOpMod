@@ -66,11 +66,9 @@ namespace GungeonOnline.Dev
         void DoorTest(float t)
         {
             if (doorStep >= 2 || System.Environment.GetEnvironmentVariable("GO_DOOR_TEST") != "1") return;
-            // GO_UI_TOUR_SOLO=1: one game, not online (screens that only exist offline, like Update).
-            bool solo = System.Environment.GetEnvironmentVariable("GO_UI_TOUR_SOLO") == "1";
-            if (!Game.SceneObjects.InBreach || (!solo && (GameManager.Instance.AllPlayers.Length < 2 || Game.PlayerSlots.Local == null))) return;
+            if (!Game.SceneObjects.InBreach || GameManager.Instance.AllPlayers.Length < 2 || Game.PlayerSlots.Local == null) return;
             if (doorSince < 0) doorSince = t;
-            bool host = Session.NetSession.IsHost || solo;
+            bool host = Session.NetSession.IsHost;
             float due = host ? 12f : 6f;
             if (t - doorSince < due) return;
             doorStep = 2;
@@ -389,7 +387,9 @@ namespace GungeonOnline.Dev
         float swapLog;
         void SwapTest(float t)
         {
-            if (swapStep >= 2 || Session.NetSession.IsHost || System.Environment.GetEnvironmentVariable("GO_SWAP_TEST") != "1") return;
+            // GO_SWAP_WHO=host makes the host swap instead of the client; GO_SWAP_CHAR picks the new character (default Convict).
+            bool hostSwaps = System.Environment.GetEnvironmentVariable("GO_SWAP_WHO") == "host";
+            if (swapStep >= 2 || Session.NetSession.IsHost != hostSwaps || System.Environment.GetEnvironmentVariable("GO_SWAP_TEST") != "1") return;
             if (swapStep == 1)
             {
                 // Real time: game time stands still on the title screen.
@@ -411,15 +411,14 @@ namespace GungeonOnline.Dev
                 if (Game.SceneObjects.InBreach && GameManager.Instance.PrimaryPlayer == null && !GameManager.Instance.IsLoadingLevel)
                 {
                     swapStep = 2;
-                    System.Environment.SetEnvironmentVariable("GO_CHAR", "PlayerConvict");
+                    string to = System.Environment.GetEnvironmentVariable("GO_SWAP_CHAR") ?? "PlayerConvict";
+                    System.Environment.SetEnvironmentVariable("GO_CHAR", to);
                     Plugin.Instance.StartCoroutine(QuickStart.Run());
-                    Plugin.Log.LogInfo("Harness: back at character select, picking the Convict");
+                    Plugin.Log.LogInfo("Harness: back at character select, picking " + to);
                 }
                 return;
             }
-            // GO_UI_TOUR_SOLO=1: one game, not online (screens that only exist offline, like Update).
-            bool solo = System.Environment.GetEnvironmentVariable("GO_UI_TOUR_SOLO") == "1";
-            if (!Game.SceneObjects.InBreach || (!solo && (GameManager.Instance.AllPlayers.Length < 2 || Game.PlayerSlots.Local == null))) return;
+            if (!Game.SceneObjects.InBreach || GameManager.Instance.AllPlayers.Length < 2 || Game.PlayerSlots.Local == null) return;
             if (swapSince < 0) swapSince = t;
             if (t - swapSince < 6f) return;
             FoyerGungeonDoor door = null;

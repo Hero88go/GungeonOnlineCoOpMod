@@ -23,6 +23,7 @@ namespace GungeonOnline
         {
             Instance = this;
             Log = Logger;
+            Session.SessionLogs.Start(); // before anything else logs, so the launch log has it all
             var clockStart = Net.Clock.Now; // start the network clock on the game thread
             Session.NetConfig.Bind(Config);
             Dev.DevEnv.Load();
