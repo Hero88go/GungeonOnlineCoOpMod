@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  <img alt="Version" src="https://img.shields.io/badge/version-1.0_beta-e2412c">
+  <img alt="Version" src="https://img.shields.io/badge/version-1.2.8_beta-e2412c">
   <img alt="Players" src="https://img.shields.io/badge/players-4_online-f2a33a">
   <img alt="Stores" src="https://img.shields.io/badge/Steam_%7C_GOG_%7C_Epic-cross--play-4c8bf5">
   <img alt="Loader" src="https://img.shields.io/badge/BepInEx-5.4-6e40c9">
@@ -82,21 +82,42 @@ Gungeon's co-op has always been couch co-op: one shared camera, and player two i
 
 ## Install
 
-Download the latest **`GungeonOnline-1.2.8.zip`** from [Releases](../../releases) and unzip it anywhere (right-click, Extract All). Close the game first. Then pick **either** way below. Everyone needs the same version.
+The intended install is [Thunderstore](https://thunderstore.io/c/enter-the-gungeon/p/GungeonOnline/GungeonOnlineCoOp/), with **r2modman**, the **Thunderstore Mod Manager**, or **Gale**. Everyone needs the same version.
 
-### Option A: the installer (easiest)
+1. In the mod manager, select **Enter the Gungeon**.
+2. Install **GungeonOnlineCoOp** (team GungeonOnline). It depends on **BepInExPack_EtG 5.4.2101**, and the mod manager installs that pack with it.
+3. Start the game with **Start modded**.
+4. Pause. You should see **PLAY ONLINE**. If it is not there, see [Troubleshooting](#troubleshooting).
+
+Share your mod-manager profile code with the people you play with, so the other mods match too. Update through the mod manager. The mod does not download or install updates itself. It only tells you when a newer release exists.
+
+**Linux and Steam Deck:** the mod is for the Windows build, through Proton. In Steam, open the game's **Properties**. Under **Compatibility**, force a Proton version. Under **General**, set **Launch options** to:
+
+```
+WINEDLLOVERRIDES="winhttp=n,b" %command%
+```
+
+Without that launch option Proton skips the mod's loader and **PLAY ONLINE** never shows up.
+
+The Thunderstore listing is an update of the existing package `GungeonOnline-GungeonOnlineCoOp`. The package name cannot change.
+
+### Manual install from GitHub
+
+If you are not using a mod manager, download **`GungeonOnline-1.2.8.zip`** from [Releases](../../releases), unzip it, close the game, and use one of the two methods below.
+
+### The installer
 
 1. Double-click **`Install Gungeon Online.bat`**.
 2. It finds Enter the Gungeon by itself (every Steam library, GOG, Epic) and installs the mod. If it can't find the game, it asks you to pick the folder with `EtG.exe`.
 3. Start the game. Done.
 
-If Windows shows **"Windows protected your PC"**, click **More info**, then **Run anyway**. That warning appears for any downloaded .bat file. If you'd rather not run it, use Option B; it does exactly the same thing.
+If Windows shows **"Windows protected your PC"**, click **More info**, then **Run anyway**. That warning appears for any downloaded .bat file. If you'd rather not run it, copy the files yourself, below. That does the same thing.
 
 To remove the mod later, double-click **`Uninstall Gungeon Online.bat`**.
 
 **Updating:** download the new zip and do the same thing again over your old install. Your settings and saved runs are kept. The game tells you when a new version is out.
 
-### Option B: copy the files yourself
+### Copy the files yourself
 
 1. Open your game folder, the one with `EtG.exe`:
    - **Steam:** right-click Enter the Gungeon in your library, **Manage**, **Browse local files**.
@@ -200,7 +221,7 @@ Your normal save is used and gets credit for runs you play online. Run backups g
 ## Troubleshooting
 
 - **No PLAY ONLINE in the pause menu:** the files went into the wrong folder. They must sit right next to `EtG.exe` (you should see `winhttp.dll` and the `BepInEx` folder beside it). Steam players: check you copied into the folder that **Browse local files** opened. On Linux or Steam Deck, also set the Proton launch option from the FAQ above.
-- **The installer window closes or does nothing:** use Option B, it does the same thing.
+- **The installer window closes or does nothing:** copy the files yourself, as described under Install. It does the same thing.
 - **"Your friend has a different version":** both players need the same download. Get the latest from [Releases](../../releases).
 - **Can't connect:** give it a few seconds, the mod opens a path through the host's router by itself. If you are both on Steam and it still fails, the join switches to Steam by itself. Otherwise the joiner's *reply code* is copied for them: they send it to the host, who picks *Let in friend*. Swapping who hosts also often works. If both routers are strict, both of you join the same Radmin VPN, Tailscale or ZeroTier network; the host's Host screen shows their VPN `ip:port` (*Copy IP*), and the friend pastes or types it in **Join**. Default port: UDP 47624. The host's Windows Firewall must allow Enter the Gungeon.
 - Anything else: [open an issue](../../issues) and use *Send report* (Settings, Help and advanced).
@@ -209,7 +230,7 @@ Your normal save is used and gets credit for runs you play online. Run backups g
 
 Version 1.2.8 beta. **Found a bug? Please [open an issue](../../issues)** and use *Send report* (Settings, Help and advanced) if you can. Every report helps.
 
-For r2modman, download **`GungeonOnline-1.2.8-r2modman.zip`** from Releases, then in r2modman pick Settings, Import local mod, and choose that zip. It uses the mod manager's BepInEx pack. When you join, the mod lists any mods that differ between you. Host and guest need matching mods and versions. ExpandTheGungeon 3.0.8 with MtG API 1.9.2 and BepInExPack_EtG 5.4.2101 has been tested across several floors. Other modpacks may still be incompatible; a different floor layout now returns the guest safely to the Breach with an explanation.
+Install and update with r2modman or the Thunderstore Mod Manager, from the Thunderstore package **GungeonOnlineCoOp**. That uses the mod manager's BepInEx pack. When you join, the mod lists any mods that differ between you. Host and guest need matching mods and versions. ExpandTheGungeon 3.0.8 with MtG API 1.9.2 and BepInExPack_EtG 5.4.2101 has been tested across several floors. Other modpacks may still be incompatible; a different floor layout now returns the guest safely to the Breach with an explanation.
 
 ## Settings
 
@@ -251,7 +272,7 @@ dotnet run --project tests/NetTests -c Release
 
 ## Credits
 
-Made by **Hero88go**. Built on [BepInEx](https://github.com/BepInEx/BepInEx) and [HarmonyX](https://github.com/BepInEx/HarmonyX) ([third-party notices](THIRD-PARTY-NOTICES.md)).
+Made by **Hero88go**. Most of the code was written with AI coding assistants from Anthropic (Claude Opus and Claude Fable) under that author's direction. The source is public. Built on [BepInEx](https://github.com/BepInEx/BepInEx) and [HarmonyX](https://github.com/BepInEx/HarmonyX) ([third-party notices](THIRD-PARTY-NOTICES.md)).
 
 Enter the Gungeon is made by Dodge Roll and published by Devolver Digital. Enter The Gungeon Online Co-Op Mod is an unofficial fan project and is not affiliated with or endorsed by them. Buy the game, it's great.
 

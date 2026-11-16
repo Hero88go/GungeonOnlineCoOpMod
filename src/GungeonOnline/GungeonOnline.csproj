@@ -6,6 +6,9 @@
     <LangVersion>latest</LangVersion>
     <Nullable>disable</Nullable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- net35 has no AssemblyMetadataAttribute, so the SDK's GenerateAssemblyInfo
+         target cannot emit Thunderstore's AI metadata. The values live in the
+         ItemGroup below and are written into the assembly by AssemblyMetadata.cs. -->
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <!-- Point GameDir at any Enter the Gungeon install that has BepInEx 5 in it. -->
@@ -14,6 +17,10 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies.net35" Version="1.0.3" PrivateAssets="all" />
+  </ItemGroup>
+  <ItemGroup>
+    <AssemblyMetadata Include="AI_Assisted_Creation" Value="This assembly was partially or fully created with the assistance of Generative AI (code suggestions and edits under the author's direction)." />
+    <AssemblyMetadata Include="AI_Model_Vendor" Value="Anthropic (Claude Opus, Claude Fable)" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="BepInEx"><HintPath>$(GameDir)\BepInEx\core\BepInEx.dll</HintPath><Private>false</Private></Reference>
