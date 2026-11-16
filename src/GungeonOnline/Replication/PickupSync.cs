@@ -47,6 +47,7 @@ namespace GungeonOnline.Replication
         static readonly Dictionary<int, uint> copyIdByInstance = new Dictionary<int, uint>();
         readonly Dictionary<uint, Chest> clientChests = new Dictionary<uint, Chest>();
         static readonly Dictionary<int, uint> chestIdByInstance = new Dictionary<int, uint>();
+        static readonly Dictionary<int, float> unmatchedSince = new Dictionary<int, float>();
         readonly Dictionary<uint, float> lastRequest = new Dictionary<uint, float>();
 
         public int PickupsAnnounced, PickupsCopied, LocalPurged, Requests, Gives, GivesApplied, ChestsMapped, ChestsOpened;
@@ -89,7 +90,7 @@ namespace GungeonOnline.Replication
             NetSession.Instance.SessionEnded += () =>
             {
                 hostPickups.Clear(); hostChests.Clear(); chestOpenSent.Clear(); hostPedestals.Clear(); pedestalPickedSent.Clear(); clientPedestals.Clear(); pedestalIdByInstance.Clear(); copies.Clear(); copyIdByInstance.Clear();
-                clientChests.Clear(); chestIdByInstance.Clear();
+                clientChests.Clear(); chestIdByInstance.Clear(); unmatchedSince.Clear();
             };
         }
 
@@ -578,6 +579,12 @@ namespace GungeonOnline.Replication
             return best;
         }
 
+        // Used by Session.FloorProgress (resume mid-floor).
+        public static string ChestPrefabName(string n) => PrefabName(n);
+        public static Chest SpawnChestAt(string name, Vector2 pos) => SpawnChest(name, pos);
+        public static IEnumerable<PickupObject> GroundItems() { foreach (var p in WorldPickups()) if (InWorld(p)) yield return p; }
+        public static void RemoveGroundItem(PickupObject p) => RemoveWorldPickup(p);
+
         static Chest SpawnChest(string name, Vector2 pos)
         {
             var rm = GameManager.Instance.RewardManager;
@@ -621,6 +628,20 @@ namespace GungeonOnline.Replication
                 if (!InWorld(p) || copyIdByInstance.ContainsKey(p.GetInstanceID())) continue;
                 RemoveWorldPickup(p);
                 LocalPurged++;
+            }
+            // Same for chests: one the host never announced (it is gone, opened before a resumed save, or never rolled
+            // on the host) must not stay here, where it could be seen and take a key (player report, 1.2.8).
+            float now = Time.realtimeSinceStartup;
+            foreach (var ch in new List<Chest>(StaticReferenceManager.AllChests))
+            {
+                if (!ch || chestIdByInstance.ContainsKey(ch.GetInstanceID()) || !Shown(ch)) continue;
+                int k = ch.GetInstanceID();
+                if (!unmatchedSince.TryGetValue(k, out var since)) { unmatchedSince[k] = now; continue; }
+                if (now - since < 5f) continue; // announcements take a moment to arrive
+                Plugin.Log.LogInfo($"Chest {PrefabName(ch.name)} at {(Vector2)ch.transform.position}: not on the host, removed here");
+                unmatchedSince.Remove(k);
+                ch.DeregisterChestOnMinimap();
+                Destroy(ch.gameObject);
             }
         }
     }

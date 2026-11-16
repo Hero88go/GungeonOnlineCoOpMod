@@ -32,6 +32,9 @@ namespace GungeonOnline.Session
             public bool Ended;
             public string Saved = "";
             public List<PlayerState> Players = new List<PlayerState>();
+            // Progress on this floor (rooms, chests, items, shop, positions); empty in saves from before 1.2.10.
+            public FloorProgress.Data Floor = new FloorProgress.Data();
+            public string FloorText = "";
         }
 
         const byte MsgBackupCopy = 1;
@@ -111,6 +114,8 @@ namespace GungeonOnline.Session
                 if (lobby != null && lobby.Roster.TryGetValue(kv.Key, out var e)) name = e.Name;
                 b.Players.Add(Snap(kv.Key, kv.Value, id, name));
             }
+            try { var fp = new StringBuilder(); FloorProgress.Write(fp); b.FloorText = fp.ToString(); }
+            catch (Exception e) { Plugin.Log.LogWarning("RunBackup: floor progress not saved: " + e.Message); }
             return b;
         }
 
@@ -158,6 +163,7 @@ namespace GungeonOnline.Session
                 foreach (var i in p.Actives) sb.Append(' ').Append(i);
                 sb.Append('\n');
             }
+            sb.Append(b.FloorText);
             return sb.ToString();
         }
 
@@ -196,6 +202,10 @@ namespace GungeonOnline.Session
                         break;
                     case "passives": if (cur != null) for (int i = 1; i < parts.Length; i++) cur.Passives.Add(int.Parse(parts[i], c)); break;
                     case "actives": if (cur != null) for (int i = 1; i < parts.Length; i++) cur.Actives.Add(int.Parse(parts[i], c)); break;
+                    default:
+                        try { if (FloorProgress.Read(b.Floor, parts)) b.FloorText += line.Trim() + "\n"; }
+                        catch { } // a damaged progress line only loses that detail
+                        break;
                 }
             }
             return b;
@@ -325,6 +335,8 @@ namespace GungeonOnline.Session
         void RestoreHost()
         {
             var b = PendingResume;
+            try { FloorProgress.Apply(b.Floor); }
+            catch (Exception e) { Plugin.Log.LogError("FloorProgress restore: " + e); }
             var local = PlayerSlots.Local;
             foreach (var p in b.Players)
                 if (p.Id == NetConfig.PlayerId.Value && local) { Apply(local, p); restoredSlots.Add(NetSession.LocalSlot); }
@@ -345,6 +357,7 @@ namespace GungeonOnline.Session
         void Update()
         {
             if (!NetSession.Active || !NetSession.IsHost) return;
+            FloorProgress.Tick();
             float now = Time.realtimeSinceStartup;
             if (saveAt > 0 && now >= saveAt) { saveAt = -1f; SaveNow("floor start"); }
             if (RunSync.CurrentIndex >= 0 && !SceneObjects.InBreach && now >= nextPeriodic)
@@ -365,10 +378,11 @@ namespace GungeonOnline.Session
                     if (pc && p.Slot != NetSession.LocalSlot && ws != null && ws.IsSlotReady(p.Slot))
                     {
                         Apply(pc, p);
+                        FloorProgress.PlaceArrival(p.Slot, pc);
                         restoredSlots.Add(p.Slot);
                     }
                 }
-                if (all) { PendingResume = null; SaveNow("resumed"); }
+                if (all) { PendingResume = null; FloorProgress.Clear(); SaveNow("resumed"); }
             }
         }
 

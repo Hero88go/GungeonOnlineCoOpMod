@@ -6,6 +6,7 @@
 - New: updating from inside the game, always optional. When a new version is out, Play Online shows *Update to x.y.z*: *Update now* downloads it, checks it, and offers *Restart game*; *Not now* and *Skip this version* leave everything as it is. Never during an online game. Installs from r2modman only get the notice.
 - When a join can't reach the host, the message now mentions the VPN route (Radmin VPN, Tailscale, ZeroTier, with the IP from the host's Host screen).
 - Fixed: a guest could see a chest the host didn't have on screen, and spending a key on it gave nothing. The host now only shares chests that are shown, and never takes a key for a chest it can't open.
+- New: **Save run and quit picks up where you left off**, like Slay the Spire 2. Resuming puts everyone back where they stood, cleared rooms stay cleared, opened chests stay looted, items on the ground and shop purchases are kept. (Saves from older versions resume at the floor's start.)
 - Reports now include the previous game launch too, so a report sent after restarting the game still has the session that went wrong.
 
 ## 1.2.8
