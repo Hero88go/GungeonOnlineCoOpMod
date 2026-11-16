@@ -3,6 +3,7 @@
 ## 1.2.10
 
 - Fixed for controller players: after a character switch, the game could hand your controller to your friend's character on your screen, and theirs to you (shots fired both guns, Start opened and closed the pause menu at once, a player could not move). Each player now always keeps their own controller.
+- Fixed: falling into a pit in the Breach could leave the host stuck, unable to move, until the run started. A fall that never finishes now puts you back on your feet within seconds there.
 - Fixed: a player could start a floor with their gun still hidden from the Breach. It is given back when the floor starts.
 
 ## 1.2.9
