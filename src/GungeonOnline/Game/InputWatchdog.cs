@@ -86,12 +86,12 @@ namespace GungeonOnline.Game
             var p = PlayerSlots.Local;
             if (p == null || gm.IsLoadingLevel || gm.IsPaused || OnlineMenu.IsOpen) { since = -1f; blackSince = -1f; arrivalSince = -1f; return; }
             CheckBlackScreen(p, gm); // the Breach too
-            if (SceneObjects.InBreach) { since = -1f; return; }
-            // A fall that never finishes (its coroutine was cut short) gets the game's own pit respawn after 10 s.
+            // A fall that never finishes (its coroutine was cut short) gets the game's own pit respawn after 10 s (5 s in
+            // the Breach, where nothing falls to a next floor). The Breach too: a host who fell into a Breach pit stayed there.
             if (p.IsFalling && !p.healthHaver.IsDead)
             {
                 if (fallSince < 0) fallSince = Time.realtimeSinceStartup;
-                else if (!fallRescued && Time.realtimeSinceStartup - fallSince > 10f)
+                else if (!fallRescued && Time.realtimeSinceStartup - fallSince > (SceneObjects.InBreach ? 5f : 10f))
                 {
                     fallRescued = true;
                     try
@@ -103,7 +103,7 @@ namespace GungeonOnline.Game
                     }
                     catch (System.Exception e) { Plugin.Log.LogWarning("InputWatchdog: pit respawn failed: " + e.Message); }
                 }
-                else if (fallRescued && Time.realtimeSinceStartup - fallSince > 16f)
+                else if (fallRescued && Time.realtimeSinceStartup - fallSince > (SceneObjects.InBreach ? 9f : 16f))
                 {
                     // The respawn itself got stuck waiting on something: end the fall here and stand on the floor.
                     fallSince = Time.realtimeSinceStartup;
@@ -111,6 +111,7 @@ namespace GungeonOnline.Game
                 }
             }
             else { fallSince = -1f; fallRescued = false; }
+            if (SceneObjects.InBreach) { since = -1f; return; }
             // Harness: GO_STUCK_ARRIVAL_AT=seconds leaves an arrival elevator lock on, as a cut-short arrival does.
             if (Dev.DevEnv.IsHarness && !stuckDone && float.TryParse(System.Environment.GetEnvironmentVariable("GO_STUCK_ARRIVAL_AT"), out var stuckAt) && Time.realtimeSinceStartup >= stuckAt)
             {
