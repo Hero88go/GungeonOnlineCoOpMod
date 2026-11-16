@@ -310,6 +310,13 @@ namespace GungeonOnline.Session
         {
             var b = LoadFile(path);
             if (b == null) return;
+            // A boss beaten before the save would come back on the rebuilt floor: start on the next floor instead.
+            if (b.Floor.BossDown && b.FloorIndex < 5)
+            {
+                Plugin.Log.LogInfo($"RunBackup: boss on floor {b.FloorIndex} was beaten, resuming on floor {b.FloorIndex + 1}");
+                b.FloorIndex++;
+                b.Floor = new FloorProgress.Data();
+            }
             PendingResume = b;
             restoredSlots.Clear();
             var s = NetSession.Instance;
@@ -354,11 +361,20 @@ namespace GungeonOnline.Session
             Plugin.Log.LogInfo($"RunBackup: restored {s.Prefab} ({s.Guns.Count} guns, {s.Passives.Count} items)");
         }
 
+        float nextBossCheck;
+        int bossSavedFloor = -1;
+
         void Update()
         {
             if (!NetSession.Active || !NetSession.IsHost) return;
             FloorProgress.Tick();
             float now = Time.realtimeSinceStartup;
+            // Save as soon as the floor's boss is beaten, so a crash after the fight never brings it back.
+            if (now >= nextBossCheck && RunSync.CurrentIndex >= 0 && !SceneObjects.InBreach && bossSavedFloor != RunSync.CurrentIndex)
+            {
+                nextBossCheck = now + 2f;
+                if (FloorProgress.BossBeaten()) { bossSavedFloor = RunSync.CurrentIndex; SaveNow("boss beaten"); }
+            }
             if (saveAt > 0 && now >= saveAt) { saveAt = -1f; SaveNow("floor start"); }
             if (RunSync.CurrentIndex >= 0 && !SceneObjects.InBreach && now >= nextPeriodic)
             {

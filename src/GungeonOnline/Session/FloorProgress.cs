@@ -31,6 +31,8 @@ namespace GungeonOnline.Session
             public readonly List<Vector2> ShopLeft = new List<Vector2>();
             public readonly Dictionary<int, Vector2> Positions = new Dictionary<int, Vector2>();
             public bool HasShopList;
+            /// <summary>The floor's boss was beaten before the save: resuming starts on the next floor.</summary>
+            public bool BossDown;
             public bool Any => Visited.Count > 0 || Positions.Count > 0;
         }
 
@@ -51,6 +53,7 @@ namespace GungeonOnline.Session
                 bool cleared = !r.HasActiveEnemies(RoomHandler.ActiveEnemyType.All) && !IsBossRoom(r);
                 sb.Append("room ").Append(i).Append(' ').Append(cleared ? 1 : 0).Append('\n');
             }
+            if (bossBeatenFloor >= 0 && bossBeatenFloor == Game.RunSync.CurrentIndex) sb.Append("boss 1\n");
             foreach (var ch in StaticReferenceManager.AllChests)
             {
                 if (!ch || !ch.gameObject.activeInHierarchy) continue;
@@ -99,6 +102,9 @@ namespace GungeonOnline.Session
                 case "shop":
                     d.HasShopList = true;
                     for (int k = 1; k < parts.Length; k++) { var xy = parts[k].Split(':'); d.ShopLeft.Add(new Vector2(float.Parse(xy[0], C), float.Parse(xy[1], C))); }
+                    return true;
+                case "boss":
+                    d.BossDown = true;
                     return true;
                 case "pos":
                     d.Positions[int.Parse(parts[1], C)] = new Vector2(float.Parse(parts[2], C), float.Parse(parts[3], C));
@@ -240,6 +246,38 @@ namespace GungeonOnline.Session
         }
 
         static readonly System.Reflection.FieldInfo givenReward = HarmonyLib.AccessTools.Field(typeof(RoomHandler), "m_hasGivenReward");
+
+        static int bossSeenFloor = -1, bossBeatenFloor = -1;
+
+        /// <summary>Host, every 2 s: true once this regular floor's boss was seen alive and none is left alive.</summary>
+        public static bool BossBeaten()
+        {
+            int f = Game.RunSync.CurrentIndex;
+            if (f < 0 || f >= Game.RunSync.SecretFloor) return false;
+            if (bossBeatenFloor == f) return true;
+            // Alive counts switched-off bosses too (a boss sleeps until its room is entered); seen needs the boss awake in
+            // a room someone entered, so a boss nobody fought is never taken as beaten.
+            bool alive = false;
+            foreach (var h in StaticReferenceManager.AllHealthHavers)
+            {
+                if (!h || !h.IsBoss || h.IsDead) continue;
+                alive = true;
+                var ai = h.aiActor;
+                var room = ai ? ai.ParentRoom : null;
+                if (h.gameObject.activeInHierarchy && room != null && IsBossRoom(room) && (room.hasEverBeenVisited || PlayerIn(room))) bossSeenFloor = f;
+            }
+            if (alive) return false;
+            if (bossSeenFloor != f) return false;
+            bossBeatenFloor = f;
+            Plugin.Log.LogInfo($"FloorProgress: boss beaten on floor index {f}");
+            return true;
+        }
+
+        static bool PlayerIn(RoomHandler room)
+        {
+            foreach (var p in GameManager.Instance.AllPlayers) if (p && p.CurrentRoom == room) return true;
+            return false;
+        }
 
         static bool IsBossRoom(RoomHandler r) => r.area != null && r.area.PrototypeRoomCategory == PrototypeDungeonRoom.RoomCategory.BOSS;
     }
