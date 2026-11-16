@@ -27,6 +27,13 @@ namespace GungeonOnline.Input
         {
             var m = AccessTools.Method(typeof(InputManager), "UpdateInternal");
             h.Patch(m, prefix: new HarmonyMethod(typeof(InputPump), nameof(Prefix)), postfix: new HarmonyMethod(typeof(InputPump), nameof(Postfix)));
+            // The game hands every player a pad from its couch co-op table each frame (BraveInput.Update) and whenever
+            // controllers change. That table also counts the friends' virtual pads, so with a real gamepad plugged in
+            // the friend's copy could be given your pad (your shots fired their gun too, your Start opened and closed
+            // the pause menu at once) and you could be given theirs or none (you could not move).
+            var assign = AccessTools.Method(typeof(BraveInput), "AssignActionsDevice");
+            if (assign != null) h.Patch(assign, postfix: new HarmonyMethod(typeof(InputPump), nameof(AfterAssign)));
+            else Plugin.Log.LogWarning("InputPump: BraveInput.AssignActionsDevice not found");
             // The options menu rebuilds its controller list when any device attaches; a virtual pad is not one of yours.
             foreach (var name in new[] { "InputManager_OnDeviceAttached", "InputManager_OnDeviceDetached" })
             {
@@ -37,8 +44,37 @@ namespace GungeonOnline.Input
 
         static bool SkipVirtual(InputDevice obj) => !(obj is NetInputDevice);
 
+        static readonly AccessTools.FieldRef<BraveInput, int> playerIdOf = AccessTools.FieldRefAccess<BraveInput, int>("m_playerID");
+
+        static void AfterAssign(BraveInput __instance)
+        {
+            try
+            {
+                if (!Session.NetSession.Active || __instance == null) return;
+                var a = __instance.ActiveActions;
+                if (a == null) return;
+                int id = playerIdOf(__instance);
+                if (devices.TryGetValue(id, out var d))
+                {
+                    if (a.Device != d) a.Device = d;
+                    if (a.ForceDisable) a.ForceDisable = false;
+                }
+                else if (id == 0)
+                {
+                    // Your own player: whatever you last touched, like single player.
+                    var active = InputManager.ActiveDevice;
+                    if (a.Device != active && !(active is NetInputDevice)) a.Device = active;
+                    if (a.ForceDisable) a.ForceDisable = false;
+                }
+            }
+            catch (Exception e) { Plugin.Log.LogError("InputPump assign: " + e.Message); }
+        }
+
         static void Prefix()
         {
+            // Every poll, not once a frame: a level load polls again later in the same frame, after the game has
+            // handed out pads again.
+            try { EnforceRouting(); } catch (Exception e) { Plugin.Log.LogError("InputPump routing: " + e); }
             if (beforeFrame == Time.frameCount) return;
             beforeFrame = Time.frameCount;
             try { BeforePoll?.Invoke(); EnforceRouting(); }
@@ -95,7 +131,7 @@ namespace GungeonOnline.Input
                 if (devices.ContainsKey(id)) continue;
                 var lb = BraveInput.GetInstanceForPlayer(id);
                 var la = lb != null ? lb.ActiveActions : null;
-                if (la != null && la.Device is NetInputDevice) la.Device = InputManager.ActiveDevice;
+                if (la != null && (la.Device is NetInputDevice || (la.Device == null && Session.NetSession.Active)) && !(InputManager.ActiveDevice is NetInputDevice)) la.Device = InputManager.ActiveDevice;
                 if (la != null && Session.NetSession.Active) KeepKeyboard(la);
             }
             foreach (var kv in devices)

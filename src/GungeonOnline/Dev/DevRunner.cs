@@ -826,11 +826,18 @@ namespace GungeonOnline.Dev
             return sb.ToString();
         }
 
+        void LateUpdate()
+        {
+            if (!DevEnv.IsHarness) return;
+            try { FakePad.Check(); } catch (System.Exception e) { Plugin.Log.LogInfo("PADCHECK check error " + e.Message); }
+        }
+
         void Update()
         {
             if (!DevEnv.IsHarness) return;
             // The swap test crosses the title screen, where the rest of the harness update can throw: keep it apart.
             try { SwapTest(Time.realtimeSinceStartup); } catch (System.Exception e) { Plugin.Log.LogInfo("Harness: swap step error " + e.Message); }
+            try { FakePad.Tick(); } catch (System.Exception e) { Plugin.Log.LogInfo("PADCHECK error " + e.Message); }
             try { StatueSwap(); } catch (System.Exception e) { Plugin.Log.LogInfo("Harness: statue swap error " + e.Message); }
             try { BreachReturn(); } catch (System.Exception e) { Plugin.Log.LogInfo("Harness: breach return error " + e.Message); }
             try { LookCheck.Tick(); } catch (System.Exception e) { Plugin.Log.LogInfo("LOOKCHECK error " + e.Message); }
