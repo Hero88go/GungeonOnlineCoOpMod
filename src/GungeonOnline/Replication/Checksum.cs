@@ -216,6 +216,16 @@ namespace GungeonOnline.Replication
             catch { }
         }
 
+        /// <summary>Back on the same floor after a drop: rooms that sealed and enemies that woke here while we were
+        /// gone are stale, so ask the host for its world at once instead of waiting for two mismatched checks.</summary>
+        public void ResyncAfterRejoin()
+        {
+            LastMismatch = "rejoined on the same floor";
+            lastResyncReq = -10f;
+            graceUntil = Time.realtimeSinceStartup + 3f;
+            RequestResync();
+        }
+
         void RequestResync()
         {
             if (Time.realtimeSinceStartup - lastResyncReq < 3f) return;

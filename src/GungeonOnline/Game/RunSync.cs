@@ -503,6 +503,7 @@ namespace GungeonOnline.Game
                 // second time, that makes a different floor. Just tell the host we are here.
                 Plugin.Log.LogInfo("RunSync: rejoined on the same floor, refreshing");
                 if (ws.FloorReady) ws.ResendReady(); else ws.OnFloorLoaded();
+                Replication.Checksum.Instance?.ResyncAfterRejoin();
                 return;
             }
             Plugin.Log.LogInfo($"RunSync: rejoining the run on floor index {index}");
