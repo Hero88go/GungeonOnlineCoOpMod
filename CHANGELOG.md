@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.2.11
+
+- Lost runs come back. When everyone goes down, the run stays in *Resume saved run* as *Lost run (try again)*: the host picks it in the Breach, straight away, no restart and no deleting files. It restarts from its last save.
+- Fixed: a beaten boss could come back after resuming a saved run. The game now saves the moment a boss dies and a resume starts on the next floor.
+- Fixed: the map (and talking, shops, everything you press interact on) could stay locked for one player after their friend talked to an NPC far away. The map is given back when the friend's conversation ends, and a map lock nothing on your screen needs is lifted after 8 seconds.
+- Fixed: after a friend dropped and rejoined on the same floor, rooms could stay sealed and extra enemies stay awake on their screen. A rejoin now gets the host's whole floor at once.
+- *Send game report* now includes your recent game launches, not only the current one, so a report sent after restarting still has the game that went wrong.
+
 ## 1.2.10
 
 - Fixed for controller players: after a character switch, the game could hand your controller to your friend's character on your screen, and theirs to you (shots fired both guns, Start opened and closed the pause menu at once, a player could not move). Each player now always keeps their own controller.
