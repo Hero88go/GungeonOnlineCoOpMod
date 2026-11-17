@@ -310,6 +310,8 @@ namespace GungeonOnline.Session
                             () => Game.AwayGuard.Instance.ContinueAlone = !Game.AwayGuard.Instance.ContinueAlone);
                     if (!NetSession.IsHost && s.Node != null && s.Node.Connecting && s.InviteCodeText != null)
                         Add("Copy my reply code", () => { GUIUtility.systemCopyBuffer = s.InviteCodeText; Toasts.Show("Reply code copied. Send it to the host, and they pick Let in friend."); });
+                    // Right after a game over the host is back in the Breach and can pick the lost run here, no restart.
+                    if (RunBackup.AnySlotUsable) Add("Resume saved run", () => Go(Screen.ResumeSlots));
                     Add("Settings", () => Go(Screen.Settings));
                     if (NetSession.IsHost && s.InviteCodeText != null) Add("Show invite code", () => Go(Screen.Host));
                     if (InRun) Add("I'm stuck", () => { Game.Unstuck.Now(); Close(); });
@@ -359,7 +361,7 @@ namespace GungeonOnline.Session
                         int slot = i;
                         Add($"Slot {slot}: " + RunBackup.SlotSummary(slot), () => { RunBackup.ResumeSlot(slot); Go(Screen.Host); }, RunBackup.SlotUsable(slot));
                     }
-                    Add("Back", () => Go(Screen.Home));
+                    Add("Back", () => Go(NetSession.Active ? Screen.Session : Screen.Home));
                     break;
                 case Screen.ConfirmLeave:
                     info = !InRun ? "Leave this online game?"
