@@ -16,7 +16,14 @@ namespace GungeonOnline.Dev
         {
             while (!Game.SceneObjects.InBreach || GameManager.Instance.PrimaryPlayer == null) yield return null;
             yield return new UnityEngine.WaitForSeconds(2f);
-            RunBackup.ResumeAsHost();
+            // GO_AUTO=lostrun: resume the newest lost run, as the menu's "Lost run" row does.
+            if (Dev.DevEnv.Auto == "lostrun")
+            {
+                var lost = RunBackup.EndedRuns(1);
+                UnityEngine.Debug.Log("Harness: lost runs offered=" + lost.Count + " menu=" + RunBackup.AnySlotUsable);
+                if (lost.Count > 0) RunBackup.ResumeFile(lost[0]);
+            }
+            else RunBackup.ResumeAsHost();
             float giveUp = UnityEngine.Time.realtimeSinceStartup + 60f;
             while (Game.PlayerSlots.Remotes.GetEnumerator().MoveNext() == false && UnityEngine.Time.realtimeSinceStartup < giveUp) yield return null;
             yield return new UnityEngine.WaitForSeconds(3f);
@@ -111,7 +118,7 @@ namespace GungeonOnline.Dev
         {
             if (a == "host") NetSession.Instance.Host();
             else if (a == "rejoin") NetSession.Instance.StartCoroutine(Later(() => NetSession.Instance.RejoinLast()));
-            else if (a == "resume") NetSession.Instance.StartCoroutine(Resume());
+            else if (a == "resume" || a == "lostrun") NetSession.Instance.StartCoroutine(Resume());
             else if (a.StartsWith("join:")) NetSession.Instance.Join(a.Substring(5));
             else if (a.StartsWith("steamjoinfile:")) NetSession.Instance.StartCoroutine(SteamJoin(a.Substring(14)));
         }

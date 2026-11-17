@@ -76,6 +76,32 @@ namespace GungeonOnline.Game
             Plugin.Log.LogWarning("InputWatchdog: the screen stayed black while you could move, faded it back in");
         }
 
+        float mapBlockSince = -1f;
+        public static int MapRestores;
+
+        /// <summary>
+        /// The map is blocked for the whole screen by conversations, boss intros and a few cutscenes. When it stays blocked
+        /// for 8 s while you have full control and nothing on this screen is talking or in an intro (a friend's
+        /// conversation far away that never ended here), the map is given back.
+        /// </summary>
+        void CheckMapBlock(PlayerController p, GameManager gm)
+        {
+            var map = Minimap.HasInstance ? Minimap.Instance : null;
+            bool ownTalk = false;
+            if (map != null && map.TemporarilyPreventMinimap)
+                foreach (var td in Object.FindObjectsOfType<TalkDoerLite>())
+                    if (td && td.IsTalking && td.TalkingPlayer == p) { ownTalk = true; break; }
+            bool stale = map != null && map.TemporarilyPreventMinimap && !ownTalk && !GameManager.IsBossIntro && !gm.PreventPausing
+                         && p.CurrentInputState == PlayerInputState.AllInput && !BossKillCam.BossDeathCamRunning;
+            if (!stale) { mapBlockSince = -1f; return; }
+            if (mapBlockSince < 0) { mapBlockSince = Time.realtimeSinceStartup; return; }
+            if (Time.realtimeSinceStartup - mapBlockSince < 8f) return;
+            mapBlockSince = -1f;
+            map.TemporarilyPreventMinimap = false;
+            MapRestores++;
+            Plugin.Log.LogWarning("InputWatchdog: the map stayed blocked with nothing on this screen holding it, gave it back");
+        }
+
         void Update()
         {
             // Four checks a second is plenty for an 8 s timeout, and keeps the cost near zero.
@@ -111,6 +137,7 @@ namespace GungeonOnline.Game
                 }
             }
             else { fallSince = -1f; fallRescued = false; }
+            CheckMapBlock(p, gm);
             if (SceneObjects.InBreach) { since = -1f; return; }
             // Harness: GO_STUCK_ARRIVAL_AT=seconds leaves an arrival elevator lock on, as a cut-short arrival does.
             if (Dev.DevEnv.IsHarness && !stuckDone && float.TryParse(System.Environment.GetEnvironmentVariable("GO_STUCK_ARRIVAL_AT"), out var stuckAt) && Time.realtimeSinceStartup >= stuckAt)

@@ -39,9 +39,13 @@ namespace GungeonOnline.Game
 
         static bool IsRemoteTalker(PlayerController p) => Session.NetSession.Active && p != null && PlayerSlots.IsRemote(p);
 
+        static bool mapBlockBefore;
+        static readonly bool MapGateOff = Dev.DevEnv.IsHarness && System.Environment.GetEnvironmentVariable("GO_MAPGATE") == "off"; // tests: the old behaviour
+
         static void EnterPrefix(FsmStateAction __instance, ref bool __state)
         {
             __state = false;
+            mapBlockBefore = Minimap.HasInstance && Minimap.Instance && Minimap.Instance.TemporarilyPreventMinimap;
             var go = __instance != null && __instance.Fsm != null ? __instance.Fsm.GameObject : null;
             var td = go != null ? go.GetComponent<TalkDoerLite>() : null;
             if (td != null && IsRemoteTalker(td.TalkingPlayer)) { depth++; __state = true; }
@@ -55,7 +59,12 @@ namespace GungeonOnline.Game
 
         static System.Exception Exit(System.Exception __exception, bool __state)
         {
-            if (__state) depth--;
+            if (__state)
+            {
+                depth--;
+                // The game blocks the map for the whole screen while anyone talks: a friend's conversation leaves ours alone.
+                if (depth == 0 && !MapGateOff && Minimap.HasInstance && Minimap.Instance) Minimap.Instance.TemporarilyPreventMinimap = mapBlockBefore;
+            }
             return __exception;
         }
 

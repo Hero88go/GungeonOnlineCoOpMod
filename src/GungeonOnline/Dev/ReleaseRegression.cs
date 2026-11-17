@@ -41,6 +41,7 @@ namespace GungeonOnline.Dev
             if (!DevEnv.IsHarness || string.IsNullOrEmpty(mode)) yield break;
             if (mode == "talk") { yield return TalkTest(); yield break; }
             if (mode == "ask") { yield return AskTest(); yield break; }
+            if (mode == "mapblock") { yield return MapBlockTest(); yield break; }
             while (!SceneObjects.OnDungeonFloor || PlayerSlots.Local == null ||
                 (NetSession.IsHost ? WorldSync.Instance.ReadyPeers < DevEnv.ExpectPlayers - 1 : !WorldSync.Instance.FloorReady)) yield return null;
             yield return Wait(5f);
@@ -286,7 +287,26 @@ namespace GungeonOnline.Dev
             npcs.Sort((x, y) => string.CompareOrdinal(x.name, y.name));
             if (NetSession.IsHost) npcs.Reverse();
             Check(npcs.Count >= 2, "two Breach NPCs that ask questions");
-            if (NetSession.IsHost) yield return Wait(70f); // the guest goes first
+            if (NetSession.IsHost)
+            {
+                // The guest goes first. While their conversation runs here, our map must stay usable.
+                float stop = Time.realtimeSinceStartup + 70f;
+                int seen = 0, blocked = 0;
+                while (Time.realtimeSinceStartup < stop)
+                {
+                    bool friendTalking = false;
+                    foreach (var td in UnityEngine.Object.FindObjectsOfType<TalkDoerLite>())
+                        if (td && td.State == TalkDoerLite.TalkingState.Conversation && PlayerSlots.IsRemote(td.TalkingPlayer)) { friendTalking = true; break; }
+                    if (friendTalking)
+                    {
+                        seen++;
+                        if (Minimap.HasInstance && Minimap.Instance && Minimap.Instance.TemporarilyPreventMinimap) blocked++;
+                    }
+                    yield return Wait(0.25f);
+                }
+                Plugin.Log.LogInfo($"TALK map while friend talks: samples={seen} blocked={blocked}");
+                Check(seen > 0 && blocked == 0, "our map stays usable while the friend talks here");
+            }
             var me = PlayerSlots.Local;
             int sentBefore = ConversationSync.AnswersSent;
             bool asked = false;
@@ -305,6 +325,23 @@ namespace GungeonOnline.Dev
             }
             Check(asked, "a conversation with a question was answered");
             Plugin.Log.LogInfo($"TALK done sent={ConversationSync.AnswersSent} used={ConversationSync.AnswersUsed}");
+        }
+
+        /// <summary>A map block left on with nothing on this screen holding it (a friend's conversation that never ended
+        /// here) is lifted by the watchdog, and the map opens again.</summary>
+        IEnumerator MapBlockTest()
+        {
+            while (!SceneObjects.OnDungeonFloor || PlayerSlots.Local == null || !AnyRemote() || !Minimap.HasInstance) yield return null;
+            yield return Wait(15f);
+            Minimap.Instance.TemporarilyPreventMinimap = true;
+            Plugin.Log.LogInfo("MAPBLOCK left the map blocked");
+            float end = Time.realtimeSinceStartup + 20f;
+            while (Time.realtimeSinceStartup < end && Minimap.Instance.TemporarilyPreventMinimap) yield return null;
+            Check(!Minimap.Instance.TemporarilyPreventMinimap, "stuck map block lifted after " + (20f - (end - Time.realtimeSinceStartup)).ToString("F1") + " s");
+            Minimap.Instance.ToggleMinimap(true);
+            yield return Wait(1f);
+            Check(Minimap.Instance.IsFullscreen, "map opens again");
+            Minimap.Instance.ToggleMinimap(false);
         }
 
         /// <summary>A friend's question open on this PC (their NPC or shrine runs here too) must not block our own
