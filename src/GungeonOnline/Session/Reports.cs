@@ -84,14 +84,13 @@ namespace GungeonOnline.Session
                 Append(sb, "Desync log", Path.Combine(Path.Combine(BepInEx.Paths.BepInExRootPath, "GungeonOnline"), "desync.log"), 300);
                 Append(sb, "Metrics (last 10 minutes)", Metrics.FilePath, 120);
                 Append(sb, "Mod log (last lines)", Path.Combine(BepInEx.Paths.BepInExRootPath, "LogOutput.log"), 1500);
-                // The launch before this one: a report sent after restarting the game still has the session that broke.
-                // The relay takes up to 512 KB, so this part shrinks until the whole report fits.
-                string prev = SessionLogs.PreviousFile;
-                if (prev != null)
+                // Earlier launches (up to 4, newest first): a report sent after restarting the game, even more than once,
+                // still has the session that broke. The relay takes up to 512 KB, so each part shrinks until it fits.
+                foreach (var prev in SessionLogs.PreviousFiles)
                     for (int lines = 1500; lines >= 100; lines /= 2)
                     {
                         var part = new StringBuilder();
-                        Append(part, "Previous launch log (" + Path.GetFileName(prev) + ", last lines)", prev, lines);
+                        Append(part, "Earlier launch log (" + Path.GetFileName(prev) + ", last lines)", prev, lines);
                         if (Encoding.UTF8.GetByteCount(sb.ToString()) + Encoding.UTF8.GetByteCount(part.ToString()) < 480 * 1024) { sb.Append(part); break; }
                     }
                 // Tests keep their copy in the run folder.

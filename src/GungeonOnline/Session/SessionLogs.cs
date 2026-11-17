@@ -55,6 +55,24 @@ namespace GungeonOnline.Session
             }
         }
 
+        /// <summary>Every kept launch log before this one, newest first.</summary>
+        public static string[] PreviousFiles
+        {
+            get
+            {
+                var list = new System.Collections.Generic.List<string>();
+                try
+                {
+                    var files = Directory.GetFiles(Dir, "launch-*.log");
+                    Array.Sort(files, StringComparer.Ordinal);
+                    for (int i = files.Length - 1; i >= 0; i--)
+                        if (!string.Equals(files[i], CurrentFile, StringComparison.OrdinalIgnoreCase)) list.Add(files[i]);
+                }
+                catch { }
+                return list.ToArray();
+            }
+        }
+
         public void LogEvent(object sender, LogEventArgs e)
         {
             lock (gate)
