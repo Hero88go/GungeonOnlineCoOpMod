@@ -249,6 +249,28 @@ namespace GungeonOnline.Session
             return list;
         }
 
+        /// <summary>The newest autosave of each of the last few runs that ended (everyone went down), so a lost run can
+        /// still be picked up from the last save before the end.</summary>
+        public static List<string> EndedRuns(int max)
+        {
+            var list = new List<string>();
+            var ended = new HashSet<int>();
+            try { if (File.Exists(EndedFile)) foreach (var l in File.ReadAllLines(EndedFile)) if (int.TryParse(l.Trim(), out var es)) ended.Add(es); } catch { }
+            if (ended.Count == 0) return list;
+            var seen = new HashSet<int>();
+            var all = new List<string>(Directory.GetFiles(Dir, "run-*.txt"));
+            all.Sort();
+            all.Reverse();
+            foreach (var f in all)
+            {
+                var b = LoadFile(f);
+                if (b == null || b.FloorIndex <= 0 || !ended.Contains(b.Seed) || !seen.Add(b.Seed)) continue;
+                list.Add(f);
+                if (list.Count >= max) break;
+            }
+            return list;
+        }
+
         public static string FileSummary(string path) => Summary(LoadFile(path));
 
         static string Summary(Backup b)
@@ -284,7 +306,7 @@ namespace GungeonOnline.Session
             {
                 if (!SceneObjects.InBreach || (NetSession.Active && !NetSession.IsHost) || PendingResume != null) return false;
                 for (int i = 0; i <= Slots; i++) if (SlotUsable(i)) return true;
-                return RecentRuns(1).Count > 0;
+                return RecentRuns(1).Count > 0 || EndedRuns(1).Count > 0;
             }
         }
 
@@ -310,6 +332,18 @@ namespace GungeonOnline.Session
         {
             var b = LoadFile(path);
             if (b == null) return;
+            // Picking a run that ended brings it back: it is no longer over.
+            if (b.Ended) b.Ended = false;
+            try
+            {
+                if (File.Exists(EndedFile))
+                {
+                    var keep = new List<string>();
+                    foreach (var l in File.ReadAllLines(EndedFile)) if (l.Trim() != b.Seed.ToString()) keep.Add(l);
+                    File.WriteAllLines(EndedFile, keep.ToArray());
+                }
+            }
+            catch { }
             // A boss beaten before the save would come back on the rebuilt floor: start on the next floor instead.
             if (b.Floor.BossDown && b.FloorIndex < 5)
             {

@@ -349,6 +349,11 @@ namespace GungeonOnline.Session
                         string file = f;
                         Add("Autosave: " + RunBackup.FileSummary(file), () => { RunBackup.ResumeFile(file); Go(Screen.Host); });
                     }
+                    foreach (var f in RunBackup.EndedRuns(2))
+                    {
+                        string file = f;
+                        Add("Lost run: " + RunBackup.FileSummary(file) + " (try again)", () => { RunBackup.ResumeFile(file); Go(Screen.Host); });
+                    }
                     for (int i = 1; i <= RunBackup.Slots; i++)
                     {
                         int slot = i;
