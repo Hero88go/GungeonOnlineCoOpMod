@@ -102,7 +102,23 @@ namespace GungeonOnline.Replication
                 ApplyCarts(ref r);
             });
         }
-        public void OnFloorChanged() { carts = null; movers = null; barrels = null; rolling.Clear(); guestKicked.Clear(); }
+        public void OnFloorChanged() { carts = null; movers = null; barrels = null; rolling.Clear(); guestKicked.Clear(); flips.Clear(); }
+
+        // Host: every table flipped on this floor and its direction. A player still loading the floor when a table
+        // flipped never got that flip (flips only go to players already on the floor), so it kept an upright table.
+        readonly Dictionary<FlippableCover, int> flips = new Dictionary<FlippableCover, int>();
+
+        /// <summary>Host: a player just finished loading (or asked for a full resync): send every flipped table.</summary>
+        public void SendFlipsTo(Connection c)
+        {
+            foreach (var kv in flips)
+            {
+                if (!kv.Key || !kv.Key.IsFlipped) continue;
+                Vector2 p = kv.Key.transform.position;
+                w.Reset(); w.U8(EvFlip); w.F32(p.x); w.F32(p.y); w.I32(kv.Value);
+                c.Send((byte)Channel.Event, w.ToArray(), Delivery.ReliableOrdered);
+            }
+        }
 
         static bool ClientBlock() => !IsClient || scope;
 
@@ -238,7 +254,7 @@ namespace GungeonOnline.Replication
 
         static void FlipPost(FlippableCover __instance, DungeonData.Direction flipDirection)
         {
-            if (IsHostSession && !scope && Instance) { Instance.SendAt(EvFlip, __instance.transform.position, (int)flipDirection); Instance.Flips++; }
+            if (IsHostSession && !scope && Instance) { Instance.SendAt(EvFlip, __instance.transform.position, (int)flipDirection); Instance.Flips++; if (__instance) Instance.flips[__instance] = (int)flipDirection; }
         }
 
         /// <summary>The unflipped table at this spot. A table can stand a little apart on another machine (where the

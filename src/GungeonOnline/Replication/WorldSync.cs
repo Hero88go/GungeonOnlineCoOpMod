@@ -579,6 +579,7 @@ namespace GungeonOnline.Replication
         /// <summary>Host: send every live actor and sealed room again (repair after a detected desync).</summary>
         public void ResendWorld(Connection c)
         {
+            PropSync.Instance?.SendFlipsTo(c);
             foreach (var kv in NetIds.All)
                 if (kv.Value is GameObject g && g)
                     foreach (var part in g.GetComponentsInChildren<AIActor>())
@@ -733,6 +734,7 @@ namespace GungeonOnline.Replication
                         if (room.IsSealed) { w.Reset(); w.U8(EvRoomSeal); w.I16((short)RoomIndex(room)); w.Bool(true); c.Send((byte)Channel.Event, w.ToArray(), Delivery.ReliableOrdered); }
                     PickupSync.Instance?.SendAllTo(c);
                     ShopSync.Instance?.SendAllTo(c);
+                    PropSync.Instance?.SendFlipsTo(c);
                     ProjectileSync.Instance?.SendAllTo(c);
                     InventorySync.Instance?.ForceResend();
                     VitalsSync.Instance?.ForceResend();
