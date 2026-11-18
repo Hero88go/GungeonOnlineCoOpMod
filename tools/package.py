@@ -80,7 +80,7 @@ def build_setup(bepinex_dir):
         f.write(VERSION)
     ico = os.path.join(work, "setup.ico")
     Image.open(os.path.join(ROOT, "tools", "thunderstore", "icon.png")).convert("RGBA").save(ico, sizes=[(16, 16), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)])
-    out = os.path.join(ROOT, "dist", "GungeonOnline-" + VERSION + "-Setup.exe")  # sorts first on the release page
+    out = os.path.join(ROOT, "dist", "GungeonOnline-" + VERSION + "-Installer.exe")  # sorts first on the release page
     cmd = [csc, "/nologo", "/target:winexe", "/optimize+", "/out:" + out, "/win32icon:" + ico,
            "/resource:" + payload + ",payload.zip", "/resource:" + os.path.join(work, "version.txt") + ",version.txt",
            "/r:System.IO.Compression.dll", "/r:System.Windows.Forms.dll", "/r:System.Drawing.dll", "/r:System.Core.dll",

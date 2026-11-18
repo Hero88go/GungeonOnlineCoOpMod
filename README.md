@@ -86,7 +86,7 @@ Close the game first. Everyone needs the same version.
 
 ### Option A: one click (easiest)
 
-1. Open the **[latest release](../../releases/latest)** and download **`GungeonOnline-x.y.z-Setup.exe`** (the first file in the list), then double-click it.
+1. Open the **[latest release](../../releases/latest)** and download **`GungeonOnline-x.y.z-Installer.exe`** (the first file in the list), then double-click it.
 2. It finds Enter the Gungeon by itself (every Steam library, GOG, Epic) and ticks it. Press **Install**. If your game isn't listed, pick the folder with `EtG.exe`.
 3. Start the game. Done.
 
