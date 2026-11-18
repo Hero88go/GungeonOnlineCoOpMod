@@ -86,31 +86,19 @@ Close the game first. Everyone needs the same version.
 
 ### Option A: one click (easiest)
 
-1. Download **[`GungeonOnline-Setup.exe`](../../releases/latest/download/GungeonOnline-Setup.exe)** and double-click it.
+1. Open the **[latest release](../../releases/latest)** and download **`GungeonOnline-x.y.z-Setup.exe`** (the first file in the list), then double-click it.
 2. It finds Enter the Gungeon by itself (every Steam library, GOG, Epic) and ticks it. Press **Install**. If your game isn't listed, pick the folder with `EtG.exe`.
 3. Start the game. Done.
 
-If Windows shows **"Windows protected your PC"**, click **More info**, then **Run anyway**. That warning appears for any small program that isn't from a big publisher. If you'd rather not run it, use the zip below.
+If Windows shows **"Windows protected your PC"**, click **More info**, then **Run anyway**. That warning appears for any small program that isn't from a big publisher. If you'd rather not run it, use r2modman (Option B).
 
 To remove the mod later, run the same file and press **Uninstall**.
 
 **Updating:** when a new version is out, the game says so once at startup, and **Play Online** shows **Update to x.y.z**. Updating is your choice: pick **Update now** (it downloads the new version, checks it, and offers **Restart game**), **Not now**, or **Skip this version**. It never updates during an online game. You can also run the newest Setup.exe again. Your settings and saved runs are kept either way.
 
-### Option B: the zip
+### Option B: r2modman (optional)
 
-Download **`GungeonOnline-1.2.9.zip`** from [Releases](../../releases) and unzip it anywhere (right-click, Extract All). Double-click **`Install Gungeon Online.bat`**: it does the same thing as Setup.exe. **`Uninstall Gungeon Online.bat`** removes it.
-
-### Option C: copy the files yourself
-
-1. Open your game folder, the one with `EtG.exe`:
-   - **Steam:** right-click Enter the Gungeon in your library, **Manage**, **Browse local files**.
-   - **GOG Galaxy:** the game, the settings icon, **Manage installation**, **Show folder**.
-   - **Epic:** usually `C:\Program Files\Epic Games\EnterTheGungeon`.
-2. Open the unzipped zip (Option B) and go into the **`files`** folder.
-3. Select everything in it (`BepInEx`, `winhttp.dll`, `doorstop_config.ini`, `.doorstop_version`) and copy it into the game folder. If Windows asks to replace files, say yes.
-4. Start the game. Done.
-
-To remove it, delete the `BepInEx\plugins\GungeonOnline` folder from the game folder. If you have no other BepInEx mods, you can also delete the `BepInEx` folder, `winhttp.dll`, `doorstop_config.ini` and `.doorstop_version`.
+If you already use r2modman, download **`GungeonOnline-x.y.z-r2modman.zip`** from the [latest release](../../releases/latest), then in r2modman pick Settings, Import local mod, and choose that zip. It uses the mod manager's BepInEx pack. This is also the way to play on Linux and Steam Deck.
 
 ### Check it worked
 
@@ -193,7 +181,7 @@ Through Proton, yes: the mod is for the Windows version of the game. In Steam, o
 WINEDLLOVERRIDES="winhttp=n,b" %command%
 ```
 
-Then copy the mod files next to `EtG.exe` as usual. Without that launch option Proton skips the mod's loader and **PLAY ONLINE** never shows up.
+Then install the mod with r2modman (Option B), which has Linux and Steam Deck builds. Without that launch option Proton skips the mod's loader and **PLAY ONLINE** never shows up.
 
 **Do I need to own the game?**
 Yes. Nothing from the game is included. Each player needs their own copy.
@@ -211,9 +199,9 @@ Your normal save is used and gets credit for runs you play online. Run backups g
 
 ## Status
 
-Version 1.2.9 beta. **Found a bug? Please [open an issue](../../issues)** and use *Send report* (Settings, Help and advanced) if you can. Every report helps.
+Version 1.2.13 beta. **Found a bug? Please [open an issue](../../issues)** and use *Send report* (Settings, Help and advanced) if you can. Every report helps.
 
-For r2modman, download **`GungeonOnline-1.2.9-r2modman.zip`** from Releases, then in r2modman pick Settings, Import local mod, and choose that zip. It uses the mod manager's BepInEx pack. When you join, the mod lists any mods that differ between you. Host and guest need matching mods and versions. ExpandTheGungeon 3.0.8 with MtG API 1.9.2 and BepInExPack_EtG 5.4.2101 has been tested across several floors. Other modpacks may still be incompatible; a different floor layout now returns the guest safely to the Breach with an explanation.
+With r2modman (Option B), when you join, the mod lists any mods that differ between you. Host and guest need matching mods and versions. ExpandTheGungeon 3.0.8 with MtG API 1.9.2 and BepInExPack_EtG 5.4.2101 has been tested across several floors. Other modpacks may still be incompatible; a different floor layout now returns the guest safely to the Breach with an explanation.
 
 ## Settings
 
