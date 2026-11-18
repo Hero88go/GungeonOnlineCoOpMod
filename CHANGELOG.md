@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.2.13
+
+- Fixed: after rejoining a saved game, the game's own purple co-op Cultist could appear next to your friend's character, with your friend controlling both and the camera no longer independent. Online, the game no longer makes its own second player; your friends' characters are the only ones.
+
 ## 1.2.12
 
 - Fixed: a table flipped while a friend was still loading the floor stayed upright on that friend's screen (they could be shot through cover everyone else saw). Friends who finish loading now get every table already flipped.

@@ -949,6 +949,8 @@ namespace GungeonOnline.Dev
                 {
                     DevEnv.StartRunAt = -1f;
                     Plugin.Log.LogInfo("Harness: host leaving the Breach");
+                    // GO_FORCE_COOP=1: leave in co-op mode with no friend copy yet, as a resumed run can (the game then made its own Cultist).
+                    if (System.Environment.GetEnvironmentVariable("GO_FORCE_COOP") == "1") { GameManager.Instance.CurrentGameType = GameManager.GameType.COOP_2_PLAYER; Plugin.Log.LogInfo("Harness: forced co-op mode, players=" + GameManager.Instance.AllPlayers.Length); }
                     Pixelator.Instance.FadeToBlack(0.5f);
                     GameManager.Instance.DelayedLoadNextLevel(0.75f);
                     if (Game.SceneObjects.Breach) Game.SceneObjects.Breach.OnDepartedFoyer();

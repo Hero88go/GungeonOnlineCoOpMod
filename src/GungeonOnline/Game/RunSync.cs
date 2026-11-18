@@ -551,6 +551,15 @@ namespace GungeonOnline.Game
             gm.InjectedLevelName = injected;
             GM.Field("m_loadingLevel").SetValue(false);
             Plugin.Log.LogInfo($"RunSync: host says load index {index} seed {seed}");
+            // Harness GO_LOSE_COPY_ON_LOAD=1: lose every friend copy before this floor loads in co-op mode, as a trip back
+            // through the Breach after the host restarted did (the game then made its own Cultist as player two).
+            if (Dev.DevEnv.IsHarness && System.Environment.GetEnvironmentVariable("GO_LOSE_COPY_ON_LOAD") == "1" && !loseCopyDone)
+            {
+                loseCopyDone = true;
+                var lose = new System.Collections.Generic.List<System.Collections.Generic.KeyValuePair<int, PlayerController>>(PlayerSlots.Remotes); foreach (var kv in lose) { PlayerSlots.Despawn(kv.Key); if (kv.Value) Object.DestroyImmediate(kv.Value.gameObject); } gm.RefreshAllPlayers();
+                gm.CurrentGameType = GameManager.GameType.COOP_2_PLAYER;
+                Plugin.Log.LogInfo("Harness: lost every friend copy before the floor load, players=" + gm.AllPlayers.Length);
+            }
             clientAllowed = true;
             Replication.WorldSync.Instance?.OnFloorUnloading();
             bool fromFoyer = Game.SceneObjects.InBreach;
@@ -559,6 +568,7 @@ namespace GungeonOnline.Game
             if (fromFoyer && Game.SceneObjects.Breach) Game.SceneObjects.Breach.OnDepartedFoyer();
         }
 
+        static bool loseCopyDone;
         readonly System.Collections.Generic.Dictionary<Connection, float> lastRejoin = new System.Collections.Generic.Dictionary<Connection, float>();
 
         /// <summary>
