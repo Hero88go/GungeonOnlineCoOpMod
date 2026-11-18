@@ -19,6 +19,18 @@ namespace GungeonOnline.Game
                 prefix: new HarmonyMethod(typeof(CouchCoop), nameof(CoopChangedPrefix)));
             h.Patch(AccessTools.Method(typeof(ChangeToNewCharacter), nameof(ChangeToNewCharacter.OnEnter)),
                 prefix: new HarmonyMethod(typeof(CouchCoop), nameof(ChangeCharacterPrefix)));
+            h.Patch(AccessTools.Method(typeof(TalkDoerLite), nameof(TalkDoerLite.Interact)),
+                prefix: new HarmonyMethod(typeof(CouchCoop), nameof(InteractPrefix)));
+        }
+
+        static readonly bool TalkFixOff = Dev.DevEnv.IsHarness && System.Environment.GetEnvironmentVariable("GO_NO_COUCHTALK_FIX") == "1";
+
+        /// <summary>The Gungeoneers only talk to player one in vanilla; on one PC player two may talk to them too.</summary>
+        static void InteractPrefix(TalkDoerLite __instance, PlayerController interactor)
+        {
+            if (!Couch || TalkFixOff || !__instance || !interactor || interactor.IsPrimaryPlayer || !__instance.PreventCoopInteraction) return;
+            if (!__instance.GetComponent<FoyerCharacterSelectFlag>() && !__instance.GetComponentInParent<FoyerCharacterSelectFlag>()) return;
+            __instance.PreventCoopInteraction = false;
         }
 
         static bool Couch => !NetSession.Active && GameManager.HasInstance && GameManager.Instance.CurrentGameType == GameManager.GameType.COOP_2_PLAYER;

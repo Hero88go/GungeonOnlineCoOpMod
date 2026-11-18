@@ -586,6 +586,18 @@ namespace GungeonOnline.Dev
             {
                 int shown = 0; foreach (var f in Object.FindObjectsOfType<FoyerCharacterSelectFlag>()) if (!f.IsCoopCharacter) shown++;
                 Plugin.Log.LogInfo($"Harness: couch joined, p1={p1} p2={p2} statues out={shown}");
+                int talkable = 0, blocked = 0;
+                foreach (var f in Object.FindObjectsOfType<FoyerCharacterSelectFlag>())
+                {
+                    if (f.IsCoopCharacter) continue;
+                    var td = f.GetComponent<TalkDoerLite>() ?? f.GetComponentInChildren<TalkDoerLite>(true);
+                    if (!td) continue;
+                    if (talkable + blocked > 0) continue; // one real conversation is enough
+                    td.Interact(gm.SecondaryPlayer);
+                    if (td.IsTalking) talkable++; else blocked++;
+                    // left open: a real player two answers it
+                }
+                Plugin.Log.LogInfo($"COUCHTALK player two can talk to {talkable} statues, blocked by {blocked}");
                 couchStep = 4;
                 foreach (var fsm in Object.FindObjectsOfType<PlayMakerFSM>())
                     foreach (var st in fsm.FsmStates)

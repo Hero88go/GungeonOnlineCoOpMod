@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.2.15
+
+- Fixed: in couch co-op (two controllers on one PC), player two couldn't talk to the other Gungeoneers in the Breach, so they couldn't pick a character. Player two can now talk to them and become any unlocked character.
+
 ## 1.2.14
 
 - Fixed: a friend's blank sometimes didn't count on the host. The host's enemy bullets weren't cleared, and the friend's blank count kept jumping back up after each sync repair. Blanks now belong to the player who uses them, and every screen runs that blank.
