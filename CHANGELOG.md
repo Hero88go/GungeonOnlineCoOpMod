@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.2.14
+
+- Fixed: a friend's blank sometimes didn't count on the host. The host's enemy bullets weren't cleared, and the friend's blank count kept jumping back up after each sync repair. Blanks now belong to the player who uses them, and every screen runs that blank.
+
 ## 1.2.13
 
 - Fixed: after rejoining a saved game, the game's own purple co-op Cultist could appear next to your friend's character, with your friend controlling both and the camera no longer independent. Online, the game no longer makes its own second player; your friends' characters are the only ones.

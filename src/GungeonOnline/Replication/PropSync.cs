@@ -68,6 +68,7 @@ namespace GungeonOnline.Replication
         {
             NetSession.Instance.On(Channel.Props, (c, data, d) =>
             {
+                if (data.Length > 0 && data[0] == BlankSync.EvBlank) { BlankSync.Apply(c, data); return; }
                 if (data.Length > 0 && data[0] == EvMyCart && NetSession.IsHost) { var mr = new WireReader(data, 1, data.Length - 1); ApplyGuestCart(c, ref mr); return; }
                 if (data.Length > 0 && data[0] == EvKickReq && NetSession.IsHost)
                 {

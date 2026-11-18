@@ -445,11 +445,23 @@ namespace GungeonOnline.Dev
             float m = EnvSec("GO_MENU_AT"), p = EnvSec("GO_PAUSE_AT");
             float ty = EnvSec("GO_TYPE_AT");
             if (!typeDone && ty > 0 && t >= ty) { typeDone = true; Session.OnlineMenu.Instance?.StartTypingForTest(); Plugin.Log.LogInfo("Harness: typing a code"); }
+            // GO_BLANK_AT=seconds: a guest uses a blank (once); the host must spend it on that guest's copy too.
+            float bl = EnvSec("GO_BLANK_AT");
+            if (!blankDone && bl > 0 && t >= bl && !Session.NetSession.IsHost && Game.PlayerSlots.Local && !Game.SceneObjects.InBreach)
+            {
+                blankDone = true;
+                var me = Game.PlayerSlots.Local;
+                int before = me.Blanks;
+                HarmonyLib.AccessTools.Method(typeof(PlayerController), "DoConsumableBlank").Invoke(me, null);
+                Plugin.Log.LogInfo($"BLANKTEST used a blank {before} -> {me.Blanks}");
+            }
             if (!menuDone && m > 0 && t >= m) { menuDone = true; Session.OnlineMenu.Instance?.Open(); Plugin.Log.LogInfo("Harness: online menu opened"); }
             if (menuDone && m > 0 && t >= m + 4 && Session.OnlineMenu.IsOpen) Session.OnlineMenu.Instance.Close();
             if (!pauseDone && p > 0 && t >= p && GameManager.Instance.PrimaryPlayer != null) { pauseDone = true; GameManager.Instance.Pause(); Plugin.Log.LogInfo("Harness: pause menu opened"); }
             if (pauseDone && !pauseClosed && t >= p + 4) { pauseClosed = true; GameManager.Instance.Unpause(); }
         }
+
+        bool blankDone;
 
         static float EnvSec(string k)
         {
