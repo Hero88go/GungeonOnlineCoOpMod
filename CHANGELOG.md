@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.2.12
+
+- Fixed: a table flipped while a friend was still loading the floor stayed upright on that friend's screen (they could be shot through cover everyone else saw). Friends who finish loading now get every table already flipped.
+
 ## 1.2.11
 
 - Lost runs come back. When everyone goes down, the run stays in *Resume saved run* as *Lost run (try again)*: the host picks it in the Breach, straight away, no restart and no deleting files. It restarts from its last save.
