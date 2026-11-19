@@ -101,6 +101,7 @@ namespace GungeonOnline.Dev
             if (cartBot) return CartFrame(t);
             if (danceBot) return DanceFrame(t);
             var f = new InputFrame();
+            if (DevEnv.MapTestShoot) { botPhase += Time.deltaTime; f.Set(NetButton.Shoot, (botPhase % 0.3f) < 0.2f); return f; }
             var me = GameManager.Instance.PrimaryPlayer;
             // In the Breach, interacting would swap characters at the statues; the bot only plays dungeon floors.
             if (me == null || Game.SceneObjects.InBreach) return f;

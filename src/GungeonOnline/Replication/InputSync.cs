@@ -268,6 +268,7 @@ namespace GungeonOnline.Replication
                 Vector2 dir = Game.RemoteAim.OwnAimDirection;
                 if (dir.sqrMagnitude > 0.0001f) { f.Aim = dir.normalized; f.Flags |= NetFlags.FinalAim; }
             }
+            f = HoldBackMapButtons(f);
             LocalSeq++;
             localHistory[LocalSeq & 255] = f;
             localTimeMs[LocalSeq & 255] = NowMs;
@@ -280,6 +281,32 @@ namespace GungeonOnline.Replication
             NetSession.Instance.Node.Broadcast((byte)Channel.Input, payload, Delivery.Unreliable);
             NetSession.Instance.FlushNow(); // out the door this frame
             Session.PeerLanes.Instance?.SendInput(payload); // and straight to the other guests
+        }
+
+        static uint mutedButtons;
+        static readonly bool mapMuteOff = Dev.DevEnv.IsHarness && System.Environment.GetEnvironmentVariable("GO_NO_MAPMUTE_FIX") == "1"; // tests: before the fix
+
+        /// <summary>
+        /// Buttons pressed while your full map or pause menu is open belong to that screen, not your character. The
+        /// map teleports on a left click (Shoot) or A (Interact); your copy on the other screens is not in the map, so
+        /// it fired, or pressed Interact where it landed (a shot or a grab in a shop angered the shopkeeper). The game
+        /// swallows those presses for your own character; now they are not sent either, and a button still held as the
+        /// map or menu closes stays quiet until it is let go, as it does for you.
+        /// </summary>
+        static InputFrame HoldBackMapButtons(InputFrame f)
+        {
+            if (mapMuteOff) return f;
+            bool screenUp = Game.PauseScope.LocalMenuOpen || (Minimap.HasInstance && Minimap.Instance && Minimap.Instance.IsFullscreen);
+            if (screenUp)
+            {
+                mutedButtons |= f.Buttons;
+                f.Buttons = 0;
+                return f;
+            }
+            if (mutedButtons == 0) return f;
+            mutedButtons &= f.Buttons; // let go: free again
+            f.Buttons &= ~mutedButtons;
+            return f;
         }
 
         void WriteStream(int slot, uint newest)

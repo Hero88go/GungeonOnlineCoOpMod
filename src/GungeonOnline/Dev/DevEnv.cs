@@ -6,6 +6,9 @@ namespace GungeonOnline.Dev
     /// <summary>Environment switches used by the automated test harness. All optional; players never set these.</summary>
     internal static class DevEnv
     {
+        /// <summary>Tests (GO_MAP_AT): the bot taps Shoot while this guest's full map is open.</summary>
+        public static bool MapTestShoot;
+
         /// <summary>GO_SAVE_DIR: save folder override. Also replaces PlayerPrefs (registry) with an in-memory store.</summary>
         public static string SaveDir;
         /// <summary>GO_QUIT_AFTER: seconds after boot to quit the game.</summary>

@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.2.17
+
+- Fixed: picking a teleporter on the map could make your character shoot (mouse) or grab something (controller) on your friends' screens, because the click that picked the teleporter reached your character there too. In a shop that made the shopkeeper angry. Buttons you press while the map or pause menu is open now stay on that screen. Thanks to lian7 for the report.
+
 ## 1.2.16
 
 - Fixed for real this time: in couch co-op (two controllers, or keyboard and a controller, on one PC), player two still couldn't talk to the Gungeoneers in the Breach. The game never offered player two the talk prompt at them, so 1.2.15's fix never got a chance to run. Player two now gets the prompt and can become any unlocked character. Thanks to Rush1Dz for testing and reporting back.

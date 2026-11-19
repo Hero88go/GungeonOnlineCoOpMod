@@ -133,6 +133,8 @@ namespace GungeonOnline.Game
         // every player on it, instead of the whole screen.
         sealed class MapView { public bool Open; public Vector2 Center; public float HalfH; }
         static readonly Dictionary<int, MapView> othersMap = new Dictionary<int, MapView>();
+        /// <summary>Tests: is that player's full map open (as last told).</summary>
+        public static bool OthersMapOpen(int slot) => othersMap.TryGetValue(slot, out var v) && v.Open;
         bool mapWasOpen;
         static bool mapErrLogged;
         static float nextDrawLog;

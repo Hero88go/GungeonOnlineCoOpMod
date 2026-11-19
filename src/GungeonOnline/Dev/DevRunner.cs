@@ -455,6 +455,7 @@ namespace GungeonOnline.Dev
                 HarmonyLib.AccessTools.Method(typeof(PlayerController), "DoConsumableBlank").Invoke(me, null);
                 Plugin.Log.LogInfo($"BLANKTEST used a blank {before} -> {me.Blanks}");
             }
+            MapShotTest(t);
             if (!menuDone && m > 0 && t >= m) { menuDone = true; Session.OnlineMenu.Instance?.Open(); Plugin.Log.LogInfo("Harness: online menu opened"); }
             if (menuDone && m > 0 && t >= m + 4 && Session.OnlineMenu.IsOpen) Session.OnlineMenu.Instance.Close();
             if (!pauseDone && p > 0 && t >= p && GameManager.Instance.PrimaryPlayer != null) { pauseDone = true; GameManager.Instance.Pause(); Plugin.Log.LogInfo("Harness: pause menu opened"); }
@@ -462,6 +463,39 @@ namespace GungeonOnline.Dev
         }
 
         bool blankDone;
+        // GO_MAP_AT=seconds: a guest opens its full map for 4 s (the fight bot keeps tapping Shoot). MAPTEST lines count
+        // shots that player fired while its map was open: its own character there, its copy on every other screen.
+        int mapStep; readonly System.Collections.Generic.HashSet<int> mapShots = new System.Collections.Generic.HashSet<int>();
+        int mapShotsOwn, mapShotsCopy;
+        void MapShotTest(float t)
+        {
+            float at = EnvSec("GO_MAP_AT");
+            if (at <= 0 || !Session.NetSession.Active || !Minimap.HasInstance || !Minimap.Instance) return;
+            var me = Game.PlayerSlots.Local;
+            if (!Session.NetSession.IsHost && me && !Game.SceneObjects.InBreach)
+            {
+                if (mapStep == 0 && t >= at) { mapStep = 1; Minimap.Instance.ToggleMinimap(true, true); DevEnv.MapTestShoot = true; Plugin.Log.LogInfo("MAPTEST guest map opened"); }
+                else if (mapStep == 1 && t >= at + 4f) { mapStep = 2; Minimap.Instance.ToggleMinimap(false); DevEnv.MapTestShoot = false; Plugin.Log.LogInfo($"MAPTEST guest map closed, own shots while open={mapShotsOwn}"); }
+                else if (mapStep == 2 && t >= at + 6f) { mapStep = 3; Plugin.Log.LogInfo($"MAPTEST guest own shots in 2 s after close={mapShotsOwn}"); }
+                if (mapStep == 1 || mapStep == 2) CountShots(me, ref mapShotsOwn);
+                return;
+            }
+            if (!Session.NetSession.IsHost) return;
+            for (int slot = 1; slot < 8; slot++)
+            {
+                var p = Game.PlayerSlots.ForSlot(slot);
+                if (!p) continue;
+                bool open = Game.MapPing.OthersMapOpen(slot);
+                if (open && mapStep == 0) { mapStep = 1; Plugin.Log.LogInfo($"MAPTEST host sees slot {slot} map open"); }
+                if (open) CountShots(p, ref mapShotsCopy);
+                if (!open && mapStep == 1) { mapStep = 2; Plugin.Log.LogInfo($"MAPTEST host: copy of slot {slot} fired {mapShotsCopy} shots while its map was open"); }
+            }
+        }
+        void CountShots(PlayerController p, ref int n)
+        {
+            foreach (var pr in StaticReferenceManager.AllProjectiles)
+                if (pr && pr.Owner == p && mapShots.Add(pr.GetInstanceID())) n++;
+        }
 
         static float EnvSec(string k)
         {
