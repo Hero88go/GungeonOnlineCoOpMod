@@ -592,9 +592,15 @@ namespace GungeonOnline.Dev
                     if (f.IsCoopCharacter) continue;
                     var td = f.GetComponent<TalkDoerLite>() ?? f.GetComponentInChildren<TalkDoerLite>(true);
                     if (!td) continue;
-                    if (talkable + blocked > 0) continue; // one real conversation is enough
-                    td.Interact(gm.SecondaryPlayer);
-                    if (td.IsTalking) talkable++; else blocked++;
+                    // What the game offers player two standing at this statue (the real path: nearest interactable).
+                    var p2c = gm.SecondaryPlayer;
+                    var room = p2c ? p2c.CurrentRoom : null;
+                    var at = td.specRigidbody ? td.specRigidbody.UnitCenter : (Vector2)td.transform.position;
+                    var offered = room != null ? room.GetNearestInteractable(at, 3f, p2c) : null;
+                    if ((object)offered == td) talkable++; else blocked++;
+                    if (talkable + blocked > 1 || (object)offered != td) continue; // one real conversation is enough
+                    offered.Interact(p2c);
+                    Plugin.Log.LogInfo("COUCHTALK conversation started=" + td.IsTalking);
                     // left open: a real player two answers it
                 }
                 Plugin.Log.LogInfo($"COUCHTALK player two can talk to {talkable} statues, blocked by {blocked}");

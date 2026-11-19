@@ -21,6 +21,26 @@ namespace GungeonOnline.Game
                 prefix: new HarmonyMethod(typeof(CouchCoop), nameof(ChangeCharacterPrefix)));
             h.Patch(AccessTools.Method(typeof(TalkDoerLite), nameof(TalkDoerLite.Interact)),
                 prefix: new HarmonyMethod(typeof(CouchCoop), nameof(InteractPrefix)));
+            h.Patch(AccessTools.Method(typeof(Dungeonator.RoomHandler), nameof(Dungeonator.RoomHandler.GetNearestInteractable)),
+                prefix: new HarmonyMethod(typeof(CouchCoop), nameof(NearestPrefix)));
+        }
+
+        static readonly AccessTools.FieldRef<Dungeonator.RoomHandler, System.Collections.Generic.List<IPlayerInteractable>> Interactables =
+            AccessTools.FieldRefAccess<Dungeonator.RoomHandler, System.Collections.Generic.List<IPlayerInteractable>>("interactableObjects");
+
+        /// <summary>
+        /// Vanilla never even offers player two a Gungeoneer to talk to: the room's nearest-interactable search skips
+        /// every talker marked PreventCoopInteraction for player two. Lift that mark on the character statues in the
+        /// Breach before the search, so player two sees the prompt and can press interact.
+        /// </summary>
+        static void NearestPrefix(Dungeonator.RoomHandler __instance, PlayerController player)
+        {
+            if (!Couch || TalkFixOff || !player || player.IsPrimaryPlayer || !GameManager.Instance.IsFoyer) return;
+            var list = Interactables(__instance);
+            if (list == null) return;
+            for (int i = 0; i < list.Count; i++)
+                if (list[i] is TalkDoerLite t && t && t.PreventCoopInteraction && (t.GetComponent<FoyerCharacterSelectFlag>() || t.GetComponentInParent<FoyerCharacterSelectFlag>()))
+                    t.PreventCoopInteraction = false;
         }
 
         static readonly bool TalkFixOff = Dev.DevEnv.IsHarness && System.Environment.GetEnvironmentVariable("GO_NO_COUCHTALK_FIX") == "1";

@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.2.16
+
+- Fixed for real this time: in couch co-op (two controllers, or keyboard and a controller, on one PC), player two still couldn't talk to the Gungeoneers in the Breach. The game never offered player two the talk prompt at them, so 1.2.15's fix never got a chance to run. Player two now gets the prompt and can become any unlocked character. Thanks to Rush1Dz for testing and reporting back.
+
 ## 1.2.15
 
 - Fixed: in couch co-op (two controllers on one PC), player two couldn't talk to the other Gungeoneers in the Breach, so they couldn't pick a character. Player two can now talk to them and become any unlocked character.
