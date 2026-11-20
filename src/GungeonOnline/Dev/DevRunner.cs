@@ -456,6 +456,7 @@ namespace GungeonOnline.Dev
                 Plugin.Log.LogInfo($"BLANKTEST used a blank {before} -> {me.Blanks}");
             }
             MapShotTest(t);
+            DeathProbe(t);
             if (!menuDone && m > 0 && t >= m) { menuDone = true; Session.OnlineMenu.Instance?.Open(); Plugin.Log.LogInfo("Harness: online menu opened"); }
             if (menuDone && m > 0 && t >= m + 4 && Session.OnlineMenu.IsOpen) Session.OnlineMenu.Instance.Close();
             if (!pauseDone && p > 0 && t >= p && GameManager.Instance.PrimaryPlayer != null) { pauseDone = true; GameManager.Instance.Pause(); Plugin.Log.LogInfo("Harness: pause menu opened"); }
@@ -463,6 +464,26 @@ namespace GungeonOnline.Dev
         }
 
         bool blankDone;
+        float nextDeathProbe;
+        // After any co-op death: what gates the map and interacting, for this machine's own player, every 3 s.
+        void DeathProbe(float t)
+        {
+            if (Game.NPlayers.DeathRevivePatches.CoopDeaths == 0 && !AnyGhost()) return;
+            if (t < nextDeathProbe) return;
+            nextDeathProbe = t + 3f;
+            var me = Game.PlayerSlots.Local; var gm = GameManager.Instance;
+            if (!me || !Minimap.HasInstance || !Minimap.Instance) return;
+            var mm = Minimap.Instance;
+            bool before = mm.IsFullscreen, opened = false;
+            if (!me.IsGhost && !before && !gm.IsLoadingLevel) { mm.ToggleMinimap(true); opened = mm.IsFullscreen; mm.ToggleMinimap(false); }
+            if (me.IsGhost && before) { opened = true; mm.ToggleMinimap(false); }
+            if (me.IsGhost && !before) DevEnv.GhostMapPress = true; // the real ghost input path opens it next frame (or not)
+            var room = me.CurrentRoom;
+            var near = room != null ? room.GetNearestInteractable(me.CenterPosition, 1f, me) : null;
+            Plugin.Log.LogInfo($"DEATHPROBE t={t:F0} ghost={me.IsGhost} dead={me.healthHaver.IsDead} st={me.CurrentInputState} nonMotion={me.AcceptingNonMotionInput} fall={me.IsFalling} preventMap={HarmonyLib.Traverse.Create(mm).Property("PreventMinimap").GetValue()} tempPreventMap={mm.TemporarilyPreventMinimap} mapOpens={opened} noPause={gm.PreventPausing} paused={gm.IsPaused} near={(near as MonoBehaviour ? (near as MonoBehaviour).name : "-")} ghosts={CountGhosts()}");
+        }
+        static bool AnyGhost() { foreach (var p in GameManager.Instance.AllPlayers) if (p && p.IsGhost) return true; return false; }
+        static int CountGhosts() { int n = 0; foreach (var p in GameManager.Instance.AllPlayers) if (p && p.IsGhost) n++; return n; }
         // GO_MAP_AT=seconds: a guest opens its full map for 4 s (the fight bot keeps tapping Shoot). MAPTEST lines count
         // shots that player fired while its map was open: its own character there, its copy on every other screen.
         int mapStep; readonly System.Collections.Generic.HashSet<int> mapShots = new System.Collections.Generic.HashSet<int>();

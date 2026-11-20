@@ -6,6 +6,9 @@ namespace GungeonOnline.Dev
     /// <summary>Environment switches used by the automated test harness. All optional; players never set these.</summary>
     internal static class DevEnv
     {
+        /// <summary>Tests: press Map once for the local ghost (GO_GHOST_MAP).</summary>
+        public static bool GhostMapPress;
+
         /// <summary>Tests (GO_MAP_AT): the bot taps Shoot while this guest's full map is open.</summary>
         public static bool MapTestShoot;
 

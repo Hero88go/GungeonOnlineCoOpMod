@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.2.18
+
+- Fixed: when you died you couldn't open the map, so a dead player could get stuck somewhere (like an elevator) until someone revived them. Online, your ghost can now open the map and teleport from it. Ghosts still can't pick things up, open chests or buy, same as the base game. Thanks to lian7 for the report.
+
 ## 1.2.17
 
 - Fixed: picking a teleporter on the map could make your character shoot (mouse) or grab something (controller) on your friends' screens, because the click that picked the teleporter reached your character there too. In a shop that made the shopkeeper angry. Buttons you press while the map or pause menu is open now stay on that screen. Thanks to lian7 for the report.
