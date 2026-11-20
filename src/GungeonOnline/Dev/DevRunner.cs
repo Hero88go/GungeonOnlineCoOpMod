@@ -464,7 +464,7 @@ namespace GungeonOnline.Dev
         }
 
         bool blankDone;
-        float nextDeathProbe;
+        float nextDeathProbe; int ghostTpStep; Vector2 ghostTpFrom;
         // After any co-op death: what gates the map and interacting, for this machine's own player, every 3 s.
         void DeathProbe(float t)
         {
@@ -473,10 +473,30 @@ namespace GungeonOnline.Dev
             nextDeathProbe = t + 3f;
             var me = Game.PlayerSlots.Local; var gm = GameManager.Instance;
             if (!me || !Minimap.HasInstance || !Minimap.Instance) return;
+            // GO_GHOST_TP: the host clears the ghost's room so a map teleport is allowed (the game refuses one mid-fight).
+            if (Session.NetSession.IsHost && System.Environment.GetEnvironmentVariable("GO_GHOST_TP") == "1")
+                foreach (var g in gm.AllPlayers)
+                    if (g && g.IsGhost && g.CurrentRoom != null)
+                        foreach (var e in new System.Collections.Generic.List<AIActor>(StaticReferenceManager.AllEnemies))
+                            if (e && e.healthHaver && e.healthHaver.IsAlive && e.ParentRoom == g.CurrentRoom) e.healthHaver.ApplyDamage(100000f, Vector2.zero, "harness", CoreDamageTypes.None, DamageCategory.Unstoppable, true);
             var mm = Minimap.Instance;
             bool before = mm.IsFullscreen, opened = false;
             if (!me.IsGhost && !before && !gm.IsLoadingLevel) { mm.ToggleMinimap(true); opened = mm.IsFullscreen; mm.ToggleMinimap(false); }
             if (me.IsGhost && before) { opened = true; mm.ToggleMinimap(false); }
+            if (me.IsGhost && before && ghostTpStep == 0 && System.Environment.GetEnvironmentVariable("GO_GHOST_TP") == "1" && me.CurrentRoom != null && me.CurrentRoom.CanTeleportFromRoom())
+            {
+                // The map's own teleport, to the floor's first room, while the ghost's map is open.
+                ghostTpStep = 1; ghostTpFrom = me.CenterPosition;
+                var ui = mm.UIMinimap; Dungeonator.RoomHandler target = null;
+                // The harness warps players, so nobody walked into a teleporter room: switch one on, as visiting it would.
+                foreach (var r in gm.Dungeon.data.rooms)
+                    if (r != me.CurrentRoom && r.hierarchyParent && r.hierarchyParent.GetComponentInChildren<TeleporterController>(true)) { r.forceTeleportersActive = true; if (r.CanTeleportToRoom()) { target = r; break; } }
+                if (target == null) { Plugin.Log.LogInfo("GHOSTTP no teleporter room yet"); ghostTpStep = 0; return; }
+                HarmonyLib.Traverse.Create(ui).Field("m_currentTeleportTarget").SetValue(target);
+                bool ok = HarmonyLib.Traverse.Create(ui).Method("AttemptTeleport").GetValue<bool>();
+                Plugin.Log.LogInfo($"GHOSTTP asked ok={ok} from={ghostTpFrom} canFrom={(me.CurrentRoom != null && me.CurrentRoom.CanTeleportFromRoom())} canTo={target.CanTeleportToRoom()} room={(me.CurrentRoom != null ? me.CurrentRoom.GetRoomName() : "-")}");
+            }
+            else if (ghostTpStep == 1) { ghostTpStep = 2; Plugin.Log.LogInfo($"GHOSTTP after: moved={Vector2.Distance(ghostTpFrom, me.CenterPosition):F1} now={me.CenterPosition} room={(me.CurrentRoom != null ? me.CurrentRoom.GetRoomName() : "-")}"); }
             if (me.IsGhost && !before) DevEnv.GhostMapPress = true; // the real ghost input path opens it next frame (or not)
             var room = me.CurrentRoom;
             var near = room != null ? room.GetNearestInteractable(me.CenterPosition, 1f, me) : null;
