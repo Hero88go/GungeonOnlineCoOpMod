@@ -456,6 +456,7 @@ namespace GungeonOnline.Dev
                 Plugin.Log.LogInfo($"BLANKTEST used a blank {before} -> {me.Blanks}");
             }
             MapShotTest(t);
+            GlitchFlowTest();
             DeathProbe(t);
             if (!menuDone && m > 0 && t >= m) { menuDone = true; Session.OnlineMenu.Instance?.Open(); Plugin.Log.LogInfo("Harness: online menu opened"); }
             if (menuDone && m > 0 && t >= m + 4 && Session.OnlineMenu.IsOpen) Session.OnlineMenu.Instance.Close();
@@ -464,6 +465,18 @@ namespace GungeonOnline.Dev
         }
 
         bool blankDone;
+        bool glitchSet;
+        // GO_GLITCH_FLOW=1 (host): on floor index 1, ask for the glitch chest's Double Beholster layout next, as opening
+        // that chest does. Every screen must build the same floor 2 (and a friend who rejoins there too).
+        void GlitchFlowTest()
+        {
+            if (glitchSet || System.Environment.GetEnvironmentVariable("GO_GLITCH_FLOW") != "1" || !Session.NetSession.Active || !Session.NetSession.IsHost) return;
+            var gm = GameManager.Instance;
+            if (Game.RunSync.CurrentIndex != 1 || gm.IsLoadingLevel || Game.SceneObjects.InBreach) return;
+            glitchSet = true;
+            gm.InjectedFlowPath = "Core Game Flows/Secret_DoubleBeholster_Flow";
+            Plugin.Log.LogInfo("GLITCHTEST next floor set to the Double Beholster layout");
+        }
         float nextDeathProbe; int ghostTpStep; Vector2 ghostTpFrom;
         // After any co-op death: what gates the map and interacting, for this machine's own player, every 3 s.
         void DeathProbe(float t)

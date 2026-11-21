@@ -299,6 +299,10 @@ namespace GungeonOnline.Game
                 }
                 int index = GM.Field("nextLevelIndex").GetValue<int>();
                 currentCustom = null;
+                // A special layout for this floor (the glitch chest's Double Beholster floor): the game reads it while
+                // building the floor and then forgets it, so keep it for friends who rejoin on this floor too.
+                currentFlow = string.IsNullOrEmpty(gm.InjectedFlowPath) ? "" : gm.InjectedFlowPath;
+                if (currentFlow != "") Plugin.Log.LogInfo("RunSync: this floor uses the special layout " + currentFlow);
                 PastMode.Reset();
                 ReseedForFloor(gm.CurrentRunSeed, index);
                 CurrentIndex = index;
@@ -317,6 +321,7 @@ namespace GungeonOnline.Game
                     w.Bool(resetOptions.BossRush); w.I32(resetOptions.NumMetas);
                 }
                 Replication.WorldSync.Instance?.OnFloorUnloading();
+                w.Str(currentFlow);
                 // Ahead of the load order on the same ordered channel: the save state this floor is built from.
                 GenContext.CaptureAndSend(gm.CurrentRunSeed, index);
                 NetSession.Instance.Node.Broadcast((byte)Channel.Control, w.ToArray(), Delivery.ReliableOrdered);
@@ -360,6 +365,7 @@ namespace GungeonOnline.Game
             w.Str(currentCustom != null ? CustomTag + currentCustom : gm.InjectedLevelName ?? "");
             var lobby = FindObjectOfType<Lobby>();
             w.Str(lobby != null && lobby.Roster.TryGetValue(c.Slot, out var e) ? e.Prefab : "");
+            w.Str(currentCustom != null ? "" : currentFlow ?? "");
             GenContext.SendTo(c);
             c.Send((byte)Channel.Control, w.ToArray(), Delivery.ReliableOrdered);
             Plugin.Log.LogInfo($"RunSync: sent rejoin (floor index {CurrentIndex}) to slot {c.Slot}");
@@ -413,12 +419,11 @@ namespace GungeonOnline.Game
             int index = r.I32();
             string injected = r.Str();
             byte reset = r.U8();
+            if (reset == 2) { resetUnload = r.Bool(); resetMenu = r.Bool(); }
+            if (reset == 3) resetOptions = new QuickRestartOptions { GunGame = r.Bool(), ChallengeMode = (ChallengeModeType)r.I32(), BossRush = r.Bool(), NumMetas = r.I32() };
+            nextFlow = r.Remaining > 0 ? r.Str() : "";
             if (reset != 0)
             {
-                resetUnload = reset == 2 && r.Bool();
-                resetMenu = reset == 2 && r.Bool();
-                if (reset == 3)
-                    resetOptions = new QuickRestartOptions { GunGame = r.Bool(), ChallengeMode = (ChallengeModeType)r.I32(), BossRush = r.Bool(), NumMetas = r.I32() };
                 var gm = GameManager.Instance;
                 rejoining = hasPending = false;
                 gm.CurrentRunSeed = seed;
@@ -488,6 +493,7 @@ namespace GungeonOnline.Game
             int index = r.I32();
             string injected = r.Str();
             string prefab = r.Str();
+            nextFlow = r.Remaining > 0 ? r.Str() : "";
             var gm = GameManager.Instance;
             var ws = Replication.WorldSync.Instance;
             // Already on our way there (a load can take longer than the host's resend interval).
@@ -514,6 +520,8 @@ namespace GungeonOnline.Game
         }
 
         static bool rejoining;
+        /// <summary>Host: the special layout of the current floor ("" for the normal one). Guest: the one the host sent last.</summary>
+        static string currentFlow = "", nextFlow = "";
 
         System.Collections.IEnumerator RejoinFlow(int seed, int index, string injected, string prefab)
         {
@@ -549,6 +557,10 @@ namespace GungeonOnline.Game
             CurrentIndex = index;
             GM.Field("nextLevelIndex").SetValue(index);
             gm.InjectedLevelName = injected;
+            // The host's special layout for this floor, or none (never a stale one from an earlier floor).
+            if (Dev.DevEnv.IsHarness && System.Environment.GetEnvironmentVariable("GO_NO_FLOWSYNC") == "1") nextFlow = ""; // tests: before the fix
+            gm.InjectedFlowPath = string.IsNullOrEmpty(nextFlow) ? null : nextFlow;
+            if (!string.IsNullOrEmpty(nextFlow)) Plugin.Log.LogInfo("RunSync: host's floor uses the special layout " + nextFlow);
             GM.Field("m_loadingLevel").SetValue(false);
             Plugin.Log.LogInfo($"RunSync: host says load index {index} seed {seed}");
             // Harness GO_LOSE_COPY_ON_LOAD=1: lose every friend copy before this floor loads in co-op mode, as a trip back

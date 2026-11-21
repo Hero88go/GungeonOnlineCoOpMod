@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.2.19
+
+- Fixed: after the host opened a glitch chest, friends built a normal floor instead of the secret Double Beholster floor, got "This floor is different from the host's" and were sent back to the Breach, again on every rejoin. Friends now get the same secret floor, also when they rejoin on it.
+
 ## 1.2.18
 
 - Fixed: when you died you couldn't open the map, so a dead player could get stuck somewhere (like an elevator) until someone revived them. Online, your ghost can now open the map and teleport from it. Ghosts still can't pick things up, open chests or buy, same as the base game. Thanks to lian7 for the report.
