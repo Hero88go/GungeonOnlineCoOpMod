@@ -187,7 +187,12 @@ namespace GungeonOnline.Replication
         }
 
         /// <summary>Client: replicas take damage only from host events (the host decides every hit on enemies).</summary>
-        static bool DamagePrefix(HealthHaver __instance) => ApplyingHost || !IsReplica(__instance);
+        static bool DamagePrefix(HealthHaver __instance, DamageCategory damageCategory, PixelCollider hitPixelCollider)
+        {
+            if (ApplyingHost || !IsReplica(__instance)) return true;
+            HitFlash.OnRefusedHit(__instance, damageCategory, hitPixelCollider); // your own shot: flash it now, the host decides the damage
+            return false;
+        }
 
         static void DamagePostfix(HealthHaver __instance, float damage, Vector2 direction)
         {
@@ -199,6 +204,18 @@ namespace GungeonOnline.Replication
             var w = Instance.w;
             w.Reset(); w.U8(EvDamage); w.U32(id); w.F32(damage); w.F32(direction.x); w.F32(direction.y);
             Instance.SendEvent(w.ToArray());
+            if (Dev.DevEnv.IsHarness && ++hitsSent % 5 == 1) Plugin.Log.LogInfo($"HITTEST host sent={hitsSent}");
+        }
+
+        static int hitsGot, hitsFlashed, hitsZero, hitsSent;
+        static readonly AccessTools.FieldRef<HealthHaver, bool> isFlashing = AccessTools.FieldRefAccess<HealthHaver, bool>("m_isFlashing");
+        /// <summary>Tests: how many of the host's hits on enemies made the enemy flash here.</summary>
+        static void HitStat(HealthHaver hh, float dmg, float before)
+        {
+            hitsGot++;
+            if (isFlashing(hh)) hitsFlashed++;
+            if (Mathf.Min(dmg, Mathf.Max(0f, before - 0.01f)) <= 0f) hitsZero++;
+            if (hitsGot % 5 == 1) Plugin.Log.LogInfo($"HITTEST got={hitsGot} flashed={hitsFlashed} zeroDamage={hitsZero} ownFlash={HitFlash.Flashed} hostSkipped={HitFlash.HostFlashSkipped}");
         }
 
         static bool DiePrefix(HealthHaver __instance) => ApplyingHost || !IsReplica(__instance);
@@ -799,7 +816,12 @@ namespace GungeonOnline.Replication
                             {
                                 // Visual hit (flash, knockback); health itself follows the host's snapshots, and death only by event.
                                 float before = rep.Actor.healthHaver.GetCurrentHealth();
-                                rep.Actor.healthHaver.ApplyDamage(Mathf.Min(dmg, Mathf.Max(0f, before - 0.01f)), dir, "host", CoreDamageTypes.None, DamageCategory.Normal, true);
+                                var hh = rep.Actor.healthHaver;
+                                bool noFlash = HitFlash.SkipHostFlash(hh), flashes = hh.flashesOnDamage;
+                                if (noFlash) hh.flashesOnDamage = false; // already flashed when our own shot landed
+                                try { hh.ApplyDamage(Mathf.Min(dmg, Mathf.Max(0f, before - 0.01f)), dir, "host", CoreDamageTypes.None, DamageCategory.Normal, true); }
+                                finally { if (noFlash) hh.flashesOnDamage = flashes; }
+                                if (Dev.DevEnv.IsHarness) HitStat(rep.Actor.healthHaver, dmg, before);
                             }
                             break;
                         }

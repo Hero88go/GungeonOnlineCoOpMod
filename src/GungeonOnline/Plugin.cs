@@ -13,7 +13,7 @@ namespace GungeonOnline
     {
         public const string Guid = "gungeononline";
         public const string Name = "Enter The Gungeon Online Co-Op Mod";
-        public const string Version = "1.2.19";
+        public const string Version = "1.2.20";
 
         internal static ManualLogSource Log;
         internal static Plugin Instance;
@@ -39,6 +39,7 @@ namespace GungeonOnline
             TryInstall("NoGamePlayerTwo", () => Game.NoGamePlayerTwo.Install(harmony));
             TryInstall("BlankSync", () => Replication.BlankSync.Install(harmony));
             TryInstall("GhostMap", () => Game.GhostMap.Install(harmony));
+            TryInstall("HitFlash", () => Replication.HitFlash.Install(harmony));
             TryInstall("BossIntroGuard", () => Game.BossIntroGuard.Install(harmony));
             TryInstall("PastMode", () => Game.PastMode.Install(harmony));
             Game.PauseScope.Install(harmony);

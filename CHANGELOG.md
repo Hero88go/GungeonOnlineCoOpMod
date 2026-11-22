@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.2.20
+
+- Better hit feedback for friends: when your shot hits an enemy, it now flashes white on your screen right away. Before, a friend only saw the flash after the host's game confirmed the hit (a moment later), and sometimes not at all. The host still decides the damage. Thanks to LenoPlanet for the suggestion.
+
 ## 1.2.19
 
 - Fixed: after the host opened a glitch chest, friends built a normal floor instead of the secret Double Beholster floor, got "This floor is different from the host's" and were sent back to the Breach, again on every rejoin. Friends now get the same secret floor, also when they rejoin on it.
